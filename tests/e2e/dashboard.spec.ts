@@ -249,7 +249,7 @@ test.describe("core interactions", () => {
       };
     });
     expect(styles.position).toBe("sticky");
-    expect(styles.backgroundColor).toContain("/ 0.64)");
+    expect(styles.backgroundColor).toContain("/ 0.88)");
     expect(styles.backdropFilter).toContain("blur(18px)");
     expect((await topbar.boundingBox())?.y).toBe(0);
 

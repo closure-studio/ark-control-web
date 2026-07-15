@@ -20,14 +20,14 @@ export function MetricCard({ icon, label, value, detail, tone = "neutral" }: {
     error: "text-error"
   }[tone];
   return (
-    <article className="metric-card card min-w-0 border border-base-300 bg-base-100">
-      <div className="card-body gap-2.5 p-4 sm:p-5">
+    <article className="dashboard-metric min-w-0">
+      <div className="flex h-full flex-col gap-2.5 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-semibold text-base-content/60 sm:text-sm">{label}</span>
-          <span className={`grid size-9 shrink-0 place-items-center rounded border sm:size-10 ${toneClass}`}>{icon}</span>
+          <span className="text-xs font-bold text-base-content/55">{label}</span>
+          <span className={`grid size-8 shrink-0 place-items-center rounded border ${toneClass}`}>{icon}</span>
         </div>
-        <strong className={`break-words text-3xl font-black leading-tight ${valueClass}`}>{value}</strong>
-        <span className="text-[0.7rem] leading-4 text-base-content/55 sm:text-xs">{detail}</span>
+        <strong className={`break-words text-[1.75rem] font-black leading-tight ${valueClass}`}>{value}</strong>
+        <span className="text-[0.7rem] leading-4 text-base-content/50 sm:text-xs">{detail}</span>
       </div>
     </article>
   );

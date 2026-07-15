@@ -10,11 +10,20 @@ const statuses: Array<{ key: HostRunStatus; label: string; className: string }> 
   { key: "timed_out", label: "Timed out", className: "bg-neutral" }
 ];
 
-export function StatusRail({ counts }: { counts: Partial<Record<HostRunStatus, number>> }) {
+export function StatusRail({
+  counts,
+  compact = false,
+  showEmptyStatuses = true
+}: {
+  counts: Partial<Record<HostRunStatus, number>>;
+  compact?: boolean;
+  showEmptyStatuses?: boolean;
+}) {
   const total = statuses.reduce((sum, item) => sum + (counts[item.key] ?? 0), 0);
+  const visibleStatuses = showEmptyStatuses ? statuses : statuses.filter((item) => (counts[item.key] ?? 0) > 0);
   return (
     <div className="min-w-0">
-      <div aria-label={`${total} host runs`} className="flex h-2.5 w-full overflow-hidden rounded bg-base-300" role="img">
+      <div aria-label={`${total} host runs`} className={`flex w-full overflow-hidden rounded bg-base-300 ${compact ? "h-2" : "h-2.5"}`} role="img">
         {total > 0
           ? statuses.map((item) => {
               const count = counts[item.key] ?? 0;
@@ -24,8 +33,8 @@ export function StatusRail({ counts }: { counts: Partial<Record<HostRunStatus, n
             })
           : null}
       </div>
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[0.68rem] text-base-content/60">
-        {statuses.map((item) => (
+      <div className={`flex flex-wrap gap-x-3 gap-y-1 text-[0.68rem] text-base-content/55 ${compact ? "mt-1.5" : "mt-2"}`}>
+        {visibleStatuses.map((item) => (
           <span className="inline-flex items-center gap-1" key={item.key}>
             <span className={`size-2 rounded-sm ${item.className}`} />
             {item.label} {counts[item.key] ?? 0}
