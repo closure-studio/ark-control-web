@@ -1,0 +1,12 @@
+name = "ark-control-web"
+main = "worker/index.ts"
+compatibility_date = "2026-07-14"
+
+[assets]
+directory = "dist"
+binding = "ASSETS"
+html_handling = "none"
+
+[observability.logs]
+enabled = true
+invocation_logs = true

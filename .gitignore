@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.wrangler/
+*.log
+playwright-report/
+test-results/
+output/
+tmp/
+/1
+/1.png
