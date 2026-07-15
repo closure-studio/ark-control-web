@@ -13,7 +13,9 @@ import type {
   VpsResource
 } from "@/types";
 
-export class ApiError extends Error {
+const HTTP_UNAUTHORIZED = 401;
+
+class ApiError extends Error {
   readonly code: string;
   readonly status: number;
   readonly details?: unknown;
@@ -63,7 +65,7 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
     const body = await parseJson(response);
     if (!response.ok) {
       const errorBody = (body && typeof body === "object" ? body : {}) as ErrorBody;
-      if (response.status === 401) onUnauthorized();
+      if (response.status === HTTP_UNAUTHORIZED) onUnauthorized();
       throw new ApiError(
         errorBody.error ?? "request_failed",
         errorBody.message ?? `Request failed with status ${response.status}.`,

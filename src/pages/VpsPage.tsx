@@ -29,12 +29,55 @@ import type {
   VpsInventoryResponse,
   VpsResource
 } from "@/types";
-import { cx, formatDateTime, messageForError } from "@/utils";
+import { formatDateTime, messageForError } from "@/utils";
 
 type NoticeState = { tone: "success" | "error" | "info"; text: string };
 type Filters = { search: string; source: string; status: string; watcher: string };
 
-const emptyFilters: Filters = { search: "", source: "all", status: "all", watcher: "all" };
+const CLOUD_STATUS_RUNNING = "RUNNING";
+const CLOUD_STATUS_UNAVAILABLE = "unavailable";
+const DEFAULT_SSH_PORT = 22;
+const DEFAULT_SSH_USERNAME = "root";
+const FILTER_ALL = "all";
+const FILTER_WATCHER_DISABLED = "disabled";
+const FILTER_WATCHER_ENABLED = "enabled";
+const MAX_SESSION_RESULTS = 20;
+const MAX_SSH_PORT = 65_535;
+const MIN_SSH_PORT = 1;
+const NEW_VPS_TARGET = "new";
+const OPERATION_STATUS_FAILED = "failed";
+const VPS_POLL_INTERVAL_MS = 15_000;
+const VPS_SOURCE_GCP = "gcp";
+const VPS_SOURCE_MANUAL = "manual";
+
+const emptyFilters: Filters = {
+  search: "",
+  source: FILTER_ALL,
+  status: FILTER_ALL,
+  watcher: FILTER_ALL
+};
+
+function selectOne(current: Set<number>, id: number): Set<number> {
+  const next = new Set(current);
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+  return next;
+}
+
+function selectMany(current: Set<number>, vpsList: VpsResource[], selected: boolean): Set<number> {
+  const next = new Set(current);
+  for (const vps of vpsList) {
+    if (selected) {
+      next.add(vps.id);
+    } else {
+      next.delete(vps.id);
+    }
+  }
+  return next;
+}
 
 function matchesFilters(vps: VpsResource, filters: Filters): boolean {
   const query = filters.search.trim().toLowerCase();
@@ -44,10 +87,10 @@ function matchesFilters(vps: VpsResource, filters: Filters): boolean {
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(query))
   ) return false;
-  if (filters.source !== "all" && vps.source !== filters.source) return false;
-  if (filters.status !== "all" && (vps.cloud?.status ?? "unavailable").toLowerCase() !== filters.status) return false;
-  if (filters.watcher === "enabled" && !vps.watcherEnabled) return false;
-  if (filters.watcher === "disabled" && vps.watcherEnabled) return false;
+  if (filters.source !== FILTER_ALL && vps.source !== filters.source) return false;
+  if (filters.status !== FILTER_ALL && (vps.cloud?.status ?? CLOUD_STATUS_UNAVAILABLE).toLowerCase() !== filters.status) return false;
+  if (filters.watcher === FILTER_WATCHER_ENABLED && !vps.watcherEnabled) return false;
+  if (filters.watcher === FILTER_WATCHER_DISABLED && vps.watcherEnabled) return false;
   return true;
 }
 
@@ -66,7 +109,7 @@ function ActionButtons({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const running = vps.cloud?.status === "RUNNING";
+  const running = vps.cloud?.status === CLOUD_STATUS_RUNNING;
   return (
     <div className="join" aria-label={`Actions for ${vps.name}`}>
       <div className="tooltip" data-tip="Verify SSH">
@@ -115,8 +158,8 @@ function VpsForm({
   const [form, setForm] = useState({
     name: vps?.name ?? "",
     address: vps?.address ?? "",
-    port: vps?.port ?? 22,
-    username: vps?.username ?? "root",
+    port: vps?.port ?? DEFAULT_SSH_PORT,
+    username: vps?.username ?? DEFAULT_SSH_USERNAME,
     password: "",
     verifyCommand: vps?.verifyCommand ?? "",
     watcherEnabled: vps?.watcherEnabled ?? true
@@ -149,7 +192,7 @@ function VpsForm({
         </label>
         <label className="form-control grid gap-1.5">
           <span className="label-text font-bold">SSH port</span>
-          <input className="input input-bordered w-full font-mono" max={65535} min={1} onChange={(event) => field("port", Number(event.target.value))} required type="number" value={form.port} />
+          <input className="input input-bordered w-full font-mono" max={MAX_SSH_PORT} min={MIN_SSH_PORT} onChange={(event) => field("port", Number(event.target.value))} required type="number" value={form.port} />
         </label>
         <label className="form-control grid gap-1.5">
           <span className="label-text font-bold">Username</span>
@@ -190,7 +233,7 @@ export function VpsPage({ api }: { api: ApiClient }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [busyIds, setBusyIds] = useState<Set<number>>(() => new Set());
-  const [formTarget, setFormTarget] = useState<VpsResource | "new" | null>(null);
+  const [formTarget, setFormTarget] = useState<VpsResource | typeof NEW_VPS_TARGET | null>(null);
   const [formBusy, setFormBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<VpsResource | null>(null);
   const [batchDelete, setBatchDelete] = useState(false);
@@ -198,7 +241,7 @@ export function VpsPage({ api }: { api: ApiClient }) {
   const [sessionResults, setSessionResults] = useState<VpsActionResult[]>([]);
 
   const load = useCallback(async (showLoading = false) => {
-    if (showLoading || !inventory) setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const response = await api.listVps();
       setInventory(response);
@@ -209,12 +252,12 @@ export function VpsPage({ api }: { api: ApiClient }) {
     } finally {
       setLoading(false);
     }
-  }, [api, inventory]);
+  }, [api]);
 
   useEffect(() => {
     void load(true);
-  }, [api]);
-  usePolling(() => void load(false), 15_000);
+  }, [load]);
+  usePolling(() => void load(false), VPS_POLL_INTERVAL_MS);
 
   const filtered = useMemo(
     () => (inventory?.vps ?? []).filter((vps) => matchesFilters(vps, filters)),
@@ -240,7 +283,7 @@ export function VpsPage({ api }: { api: ApiClient }) {
     setNotice(null);
     try {
       const { result } = await api.runVpsAction(vps.id, action);
-      setSessionResults((current) => [result, ...current].slice(0, 20));
+      setSessionResults((current) => [result, ...current].slice(0, MAX_SESSION_RESULTS));
       setNotice({ tone: "success", text: `${vps.name} ${action} completed.` });
       await load(false);
     } catch (actionError) {
@@ -268,7 +311,7 @@ export function VpsPage({ api }: { api: ApiClient }) {
     setFormBusy(true);
     setNotice(null);
     try {
-      if (formTarget === "new") {
+      if (formTarget === NEW_VPS_TARGET) {
         if (!input.password) return;
         await api.createVps({ ...input, password: input.password });
         setNotice({ tone: "success", text: `${input.name} was added.` });
@@ -318,8 +361,8 @@ export function VpsPage({ api }: { api: ApiClient }) {
     selectedVps.forEach((vps) => setBusy(vps.id, true));
     try {
       const { results } = await api.runBatchVpsAction(selectedVps.map((vps) => vps.id), action);
-      setSessionResults((current) => [...results, ...current].slice(0, 20));
-      const failed = results.filter((result) => result.status === "failed").length;
+      setSessionResults((current) => [...results, ...current].slice(0, MAX_SESSION_RESULTS));
+      const failed = results.filter((result) => result.status === OPERATION_STATUS_FAILED).length;
       setNotice({
         tone: failed ? "error" : "success",
         text: failed ? `${results.length - failed} completed, ${failed} failed.` : `${results.length} VPS actions completed.`
@@ -340,7 +383,7 @@ export function VpsPage({ api }: { api: ApiClient }) {
         actions={(
           <>
             <RefreshButton loading={loading} onClick={() => void load(true)} />
-            <button className="btn btn-primary btn-sm" onClick={() => setFormTarget("new")} type="button">
+            <button className="btn btn-primary btn-sm" onClick={() => setFormTarget(NEW_VPS_TARGET)} type="button">
               <Plus aria-hidden="true" size={16} />Manual VPS
             </button>
           </>
@@ -362,13 +405,13 @@ export function VpsPage({ api }: { api: ApiClient }) {
             <input className="min-w-0 grow" onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search VPS" value={filters.search} />
           </label>
           <select aria-label="Source" className="select select-bordered select-sm w-full" onChange={(event) => setFilters((current) => ({ ...current, source: event.target.value }))} value={filters.source}>
-            <option value="all">All sources</option><option value="gcp">GCP</option><option value="manual">Manual</option>
+            <option value={FILTER_ALL}>All sources</option><option value={VPS_SOURCE_GCP}>GCP</option><option value={VPS_SOURCE_MANUAL}>Manual</option>
           </select>
           <select aria-label="Cloud status" className="select select-bordered select-sm w-full" onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))} value={filters.status}>
-            <option value="all">All cloud states</option><option value="running">Running</option><option value="terminated">Stopped</option><option value="unavailable">Unavailable</option>
+            <option value={FILTER_ALL}>All cloud states</option><option value="running">Running</option><option value="terminated">Stopped</option><option value={CLOUD_STATUS_UNAVAILABLE}>Unavailable</option>
           </select>
           <select aria-label="Watcher state" className="select select-bordered select-sm w-full" onChange={(event) => setFilters((current) => ({ ...current, watcher: event.target.value }))} value={filters.watcher}>
-            <option value="all">All Watcher states</option><option value="enabled">Watcher enabled</option><option value="disabled">Watcher disabled</option>
+            <option value={FILTER_ALL}>All Watcher states</option><option value={FILTER_WATCHER_ENABLED}>Watcher enabled</option><option value={FILTER_WATCHER_DISABLED}>Watcher disabled</option>
           </select>
           <button className="btn btn-ghost btn-sm justify-self-end px-2" disabled={JSON.stringify(filters) === JSON.stringify(emptyFilters)} onClick={() => setFilters(emptyFilters)} type="button">Clear</button>
         </section>
@@ -393,20 +436,18 @@ export function VpsPage({ api }: { api: ApiClient }) {
               <table className="control-table table table-sm min-w-[64rem]">
                 <thead>
                   <tr>
-                    <th className="w-10"><input aria-label="Select all visible VPS" checked={allFilteredSelected} className="checkbox checkbox-sm" onChange={(event) => setSelected((current) => {
-                      const next = new Set(current); filtered.forEach((vps) => event.target.checked ? next.add(vps.id) : next.delete(vps.id)); return next;
-                    })} type="checkbox" /></th>
+                    <th className="w-10"><input aria-label="Select all visible VPS" checked={allFilteredSelected} className="checkbox checkbox-sm" onChange={(event) => setSelected((current) => selectMany(current, filtered, event.target.checked))} type="checkbox" /></th>
                     <th>VPS</th><th>SSH</th><th>Cloud</th><th>Status</th><th>Watcher</th><th className="hidden 2xl:table-cell">Updated</th><th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((vps) => (
                     <tr key={vps.id}>
-                      <td><input aria-label={`Select ${vps.name}`} checked={selected.has(vps.id)} className="checkbox checkbox-sm" onChange={() => setSelected((current) => { const next = new Set(current); next.has(vps.id) ? next.delete(vps.id) : next.add(vps.id); return next; })} type="checkbox" /></td>
-                      <td className="max-w-56"><strong className="break-words">{vps.name}</strong><span className="mt-1 flex items-center gap-1 text-xs text-base-content/55">{vps.source === "gcp" ? <Cloud size={13} /> : <Server size={13} />}{vps.source === "gcp" ? "GCP" : "Manual"}</span></td>
+                      <td><input aria-label={`Select ${vps.name}`} checked={selected.has(vps.id)} className="checkbox checkbox-sm" onChange={() => setSelected((current) => selectOne(current, vps.id))} type="checkbox" /></td>
+                      <td className="max-w-56"><strong className="break-words">{vps.name}</strong><span className="mt-1 flex items-center gap-1 text-xs text-base-content/55">{vps.source === VPS_SOURCE_GCP ? <Cloud size={13} /> : <Server size={13} />}{vps.source === VPS_SOURCE_GCP ? "GCP" : "Manual"}</span></td>
                       <td className="max-w-52"><span className="break-all font-mono text-xs">{vps.username}@{vps.address}:{vps.port}</span></td>
                       <td>{vps.cloud ? <div><strong className="text-xs">{vps.cloud.accountName}</strong><span className="block text-xs text-base-content/55">{vps.cloud.zone}</span></div> : <span className="text-base-content/45">None</span>}</td>
-                      <td><StatusBadge value={vps.cloud?.status ?? (vps.source === "manual" ? "Manual" : null)} />{vps.cloud?.error ? <span className="mt-1 block max-w-44 whitespace-normal text-xs text-error">{vps.cloud.error}</span> : null}</td>
+                      <td><StatusBadge value={vps.cloud?.status ?? (vps.source === VPS_SOURCE_MANUAL ? "Manual" : null)} />{vps.cloud?.error ? <span className="mt-1 block max-w-44 whitespace-normal text-xs text-error">{vps.cloud.error}</span> : null}</td>
                       <td><input aria-label={`${vps.watcherEnabled ? "Disable" : "Enable"} Watcher for ${vps.name}`} checked={vps.watcherEnabled} className="toggle toggle-success toggle-sm" disabled={busyIds.has(vps.id)} onChange={(event) => void toggleWatcher(vps, event.target.checked)} type="checkbox" /></td>
                       <td className="hidden 2xl:table-cell">{formatDateTime(vps.updatedAt)}</td>
                       <td className="text-right"><ActionButtons busy={busyIds.has(vps.id)} onAction={(action) => void runAction(vps, action)} onDelete={() => setDeleteTarget(vps)} onEdit={() => setFormTarget(vps)} onVerify={() => void verify(vps)} vps={vps} /></td>
@@ -421,7 +462,7 @@ export function VpsPage({ api }: { api: ApiClient }) {
                 <article className="control-panel card border bg-base-100" key={vps.id}>
                   <div className="card-body gap-3 p-4">
                     <div className="flex items-start gap-3">
-                      <input aria-label={`Select ${vps.name}`} checked={selected.has(vps.id)} className="checkbox checkbox-sm mt-1" onChange={() => setSelected((current) => { const next = new Set(current); next.has(vps.id) ? next.delete(vps.id) : next.add(vps.id); return next; })} type="checkbox" />
+                      <input aria-label={`Select ${vps.name}`} checked={selected.has(vps.id)} className="checkbox checkbox-sm mt-1" onChange={() => setSelected((current) => selectOne(current, vps.id))} type="checkbox" />
                       <div className="min-w-0 grow"><h2 className="break-words font-bold">{vps.name}</h2><p className="mt-1 break-all font-mono text-xs text-base-content/60">{vps.username}@{vps.address}:{vps.port}</p></div>
                       <StatusBadge value={vps.cloud?.status ?? "Manual"} />
                     </div>
@@ -450,8 +491,8 @@ export function VpsPage({ api }: { api: ApiClient }) {
         ) : null}
       </div>
 
-      <FormModal open={formTarget !== null} onClose={() => setFormTarget(null)} title={formTarget === "new" ? "Add manual VPS" : "Edit VPS"}>
-        {formTarget !== null ? <VpsForm busy={formBusy} key={formTarget === "new" ? "new" : formTarget.id} onCancel={() => setFormTarget(null)} onSubmit={(input) => void saveForm(input)} vps={formTarget === "new" ? null : formTarget} /> : null}
+      <FormModal open={formTarget !== null} onClose={() => setFormTarget(null)} title={formTarget === NEW_VPS_TARGET ? "Add manual VPS" : "Edit VPS"}>
+        {formTarget !== null ? <VpsForm busy={formBusy} key={formTarget === NEW_VPS_TARGET ? NEW_VPS_TARGET : formTarget.id} onCancel={() => setFormTarget(null)} onSubmit={(input) => void saveForm(input)} vps={formTarget === NEW_VPS_TARGET ? null : formTarget} /> : null}
       </FormModal>
 
       <ConfirmDialog

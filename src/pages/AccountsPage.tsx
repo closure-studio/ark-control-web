@@ -3,7 +3,6 @@ import {
   Cloud,
   Code2,
   Copy,
-  KeyRound,
   LoaderCircle,
   Pencil,
   Plus,
@@ -24,6 +23,10 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CLOUD_SHELL_SCRIPT } from "@/constants/cloudShellScript";
 import type { AccountInput, GcpAccount } from "@/types";
 import { formatDateTime, messageForError } from "@/utils";
+
+const COPY_FEEDBACK_DURATION_MS = 1_800;
+const NEW_ACCOUNT_TARGET = "new";
+const WORKLOAD_IDENTITY_PROVIDER_FIELD: keyof AccountInput = "workloadIdentityProvider";
 
 const emptyAccount: AccountInput = {
   name: "",
@@ -71,7 +74,7 @@ function AccountForm({
     { key: "projectId", label: "Project ID", placeholder: "ark-project", mono: true },
     { key: "projectNumber", label: "Project number", placeholder: "1234567890", mono: true },
     { key: "serviceAccountEmail", label: "Service account", placeholder: "ark-control@project.iam.gserviceaccount.com", mono: true },
-    { key: "workloadIdentityProvider", label: "Workload identity provider", placeholder: "//iam.googleapis.com/projects/...", mono: true },
+    { key: WORKLOAD_IDENTITY_PROVIDER_FIELD, label: "Workload identity provider", placeholder: "//iam.googleapis.com/projects/...", mono: true },
     { key: "defaultZone", label: "Default zone", placeholder: "us-central1-c", mono: true }
   ];
 
@@ -79,7 +82,7 @@ function AccountForm({
     <form className="grid gap-4 p-4" onSubmit={submit}>
       <div className="grid gap-4 md:grid-cols-2">
         {fields.map((field) => (
-          <label className={field.key === "workloadIdentityProvider" ? "form-control grid gap-1.5 md:col-span-2" : "form-control grid gap-1.5"} key={field.key}>
+          <label className={field.key === WORKLOAD_IDENTITY_PROVIDER_FIELD ? "form-control grid gap-1.5 md:col-span-2" : "form-control grid gap-1.5"} key={field.key}>
             <span className="label-text font-bold">{field.label}</span>
             <input className={`input input-bordered w-full ${field.mono ? "font-mono text-sm" : ""}`} onChange={(event) => set(field.key, event.target.value)} placeholder={field.placeholder} required value={form[field.key]} />
           </label>
@@ -99,7 +102,7 @@ function CloudShellModal({ open, onClose }: { open: boolean; onClose: () => void
     try {
       await navigator.clipboard.writeText(CLOUD_SHELL_SCRIPT);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      window.setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
     } catch {
       setCopied(false);
     }
@@ -121,7 +124,7 @@ export function AccountsPage({ api }: { api: ApiClient }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<NoticeState | null>(null);
-  const [formTarget, setFormTarget] = useState<GcpAccount | "new" | null>(null);
+  const [formTarget, setFormTarget] = useState<GcpAccount | typeof NEW_ACCOUNT_TARGET | null>(null);
   const [formBusy, setFormBusy] = useState(false);
   const [busyIds, setBusyIds] = useState<Set<number>>(() => new Set());
   const [deleteTarget, setDeleteTarget] = useState<GcpAccount | null>(null);
@@ -145,7 +148,13 @@ export function AccountsPage({ api }: { api: ApiClient }) {
 
   function setBusy(id: number, value: boolean) {
     setBusyIds((current) => {
-      const next = new Set(current); value ? next.add(id) : next.delete(id); return next;
+      const next = new Set(current);
+      if (value) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
     });
   }
 
@@ -153,7 +162,7 @@ export function AccountsPage({ api }: { api: ApiClient }) {
     setFormBusy(true);
     setNotice(null);
     try {
-      if (formTarget === "new") {
+      if (formTarget === NEW_ACCOUNT_TARGET) {
         await api.createAccount(input);
         setNotice({ tone: "success", text: `${input.name} was added.` });
       } else if (formTarget) {
@@ -212,7 +221,7 @@ export function AccountsPage({ api }: { api: ApiClient }) {
   return (
     <div className="min-w-0">
       <PageHeader
-        actions={<><RefreshButton loading={loading} onClick={() => void load()} /><button className="btn btn-sm" onClick={() => setShowScript(true)} type="button"><Code2 size={16} />Cloud setup</button><button className="btn btn-primary btn-sm" onClick={() => setFormTarget("new")} type="button"><Plus size={16} />Account</button></>}
+        actions={<><RefreshButton loading={loading} onClick={() => void load()} /><button className="btn btn-sm" onClick={() => setShowScript(true)} type="button"><Code2 size={16} />Cloud setup</button><button className="btn btn-primary btn-sm" onClick={() => setFormTarget(NEW_ACCOUNT_TARGET)} type="button"><Plus size={16} />Account</button></>}
         eyebrow="Cloud access"
         title="GCP Accounts"
       />
@@ -261,8 +270,8 @@ export function AccountsPage({ api }: { api: ApiClient }) {
         ) : null}
       </div>
 
-      <FormModal onClose={() => setFormTarget(null)} open={formTarget !== null} title={formTarget === "new" ? "Add GCP account" : "Edit GCP account"}>
-        {formTarget !== null ? <AccountForm account={formTarget === "new" ? null : formTarget} busy={formBusy} key={formTarget === "new" ? "new" : formTarget.id} onCancel={() => setFormTarget(null)} onSubmit={(input) => void save(input)} /> : null}
+      <FormModal onClose={() => setFormTarget(null)} open={formTarget !== null} title={formTarget === NEW_ACCOUNT_TARGET ? "Add GCP account" : "Edit GCP account"}>
+        {formTarget !== null ? <AccountForm account={formTarget === NEW_ACCOUNT_TARGET ? null : formTarget} busy={formBusy} key={formTarget === NEW_ACCOUNT_TARGET ? NEW_ACCOUNT_TARGET : formTarget.id} onCancel={() => setFormTarget(null)} onSubmit={(input) => void save(input)} /> : null}
       </FormModal>
       <CloudShellModal onClose={() => setShowScript(false)} open={showScript} />
       <ConfirmDialog

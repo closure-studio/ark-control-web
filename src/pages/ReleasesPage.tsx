@@ -4,7 +4,6 @@ import {
   ExternalLink,
   FileText,
   LoaderCircle,
-  PackageCheck,
   RefreshCw
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -22,6 +21,8 @@ import type { HostRun, ReleaseSummary, RunLog } from "@/types";
 import { formatDateTime, messageForError } from "@/utils";
 
 const PAGE_SIZE = 25;
+const RELEASE_POLL_INTERVAL_MS = 15_000;
+const ACTIVE_RUN_STATUSES: ReadonlySet<HostRun["status"]> = new Set(["pending", "running"]);
 
 function RunLogModal({ run, log, loading, error, onClose, onRefresh }: {
   run: HostRun | null;
@@ -69,7 +70,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
     () => releases.find((release) => release.id === selectedId) ?? null,
     [releases, selectedId]
   );
-  const hasActiveRuns = runs.some((run) => run.status === "pending" || run.status === "running");
+  const hasActiveRuns = runs.some((run) => ACTIVE_RUN_STATUSES.has(run.status));
 
   const loadReleases = useCallback(async () => {
     setReleaseLoading(true);
@@ -107,8 +108,8 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
   }, [api, selectedId]);
 
   useEffect(() => { void loadReleases(); }, [loadReleases]);
-  useEffect(() => { setRuns([]); setSelectedRun(null); void loadRuns(true); }, [selectedId]);
-  usePolling(() => { void loadRuns(false); void loadReleases(); }, 15_000, hasActiveRuns);
+  useEffect(() => { setRuns([]); setSelectedRun(null); void loadRuns(true); }, [loadRuns]);
+  usePolling(() => { void loadRuns(false); void loadReleases(); }, RELEASE_POLL_INTERVAL_MS, hasActiveRuns);
 
   async function loadLog(run: HostRun, showLoading = true) {
     if (showLoading) setLogLoading(true);

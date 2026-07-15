@@ -23,13 +23,16 @@ import { usePolling } from "@/hooks/usePolling";
 import type { DashboardResponse } from "@/types";
 import { formatDateTime, messageForError } from "@/utils";
 
+const DASHBOARD_POLL_INTERVAL_MS = 15_000;
+const MAX_VISIBLE_INVENTORY_ERRORS = 3;
+
 export function DashboardPage({ api }: { api: ApiClient }) {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (showLoading = false) => {
-    if (showLoading || !data) setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const response = await api.getDashboard();
       setData(response);
@@ -39,12 +42,12 @@ export function DashboardPage({ api }: { api: ApiClient }) {
     } finally {
       setLoading(false);
     }
-  }, [api, data]);
+  }, [api]);
 
   useEffect(() => {
     void load(true);
-  }, [api]);
-  usePolling(() => void load(false), 15_000);
+  }, [load]);
+  usePolling(() => void load(false), DASHBOARD_POLL_INTERVAL_MS);
 
   return (
     <div className="min-w-0">
@@ -104,7 +107,7 @@ export function DashboardPage({ api }: { api: ApiClient }) {
               <div className="min-w-0">
                 <h3 className="font-black">Cloud inventory is partially unavailable</h3>
                 <ul className="mt-1 list-inside list-disc text-sm">
-                  {data.errors.slice(0, 3).map((item, index) => <li className="break-words" key={`${item.accountId ?? "unknown"}-${index}`}>{item.message}</li>)}
+                  {data.errors.slice(0, MAX_VISIBLE_INVENTORY_ERRORS).map((item, index) => <li className="break-words" key={`${item.accountId ?? "unknown"}-${index}`}>{item.message}</li>)}
                 </ul>
               </div>
             </div>

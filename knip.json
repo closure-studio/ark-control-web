@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/**/*.{test,spec}.{ts,tsx}",
+    "worker/**/*.{test,spec}.ts",
+    "tests/**/*.{test,spec}.ts",
+    "*.config.ts",
+    "scripts/**/*.mjs"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "worker/**/*.ts",
+    "tests/**/*.ts",
+    "*.config.ts",
+    "scripts/**/*.mjs"
+  ],
+  "ignoreDependencies": ["daisyui", "tailwindcss"]
+}

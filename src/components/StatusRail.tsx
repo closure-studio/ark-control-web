@@ -1,5 +1,7 @@
 import type { HostRunStatus } from "@/types";
 
+const PERCENT_SCALE = 100;
+
 const statuses: Array<{ key: HostRunStatus; label: string; className: string }> = [
   { key: "succeeded", label: "Succeeded", className: "bg-success" },
   { key: "running", label: "Running", className: "bg-info" },
@@ -17,7 +19,7 @@ export function StatusRail({ counts }: { counts: Partial<Record<HostRunStatus, n
           ? statuses.map((item) => {
               const count = counts[item.key] ?? 0;
               return count > 0 ? (
-                <span className={item.className} key={item.key} style={{ width: `${(count / total) * 100}%` }} />
+                <span className={item.className} key={item.key} style={{ width: `${(count / total) * PERCENT_SCALE}%` }} />
               ) : null;
             })
           : null}

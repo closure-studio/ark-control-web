@@ -1,4 +1,4 @@
-export type OperationStatus = "submitted" | "succeeded" | "failed" | "skipped";
+type OperationStatus = "submitted" | "succeeded" | "failed" | "skipped";
 export type VpsAction = "start" | "stop" | "delete";
 
 export interface GcpAccount {
@@ -14,7 +14,7 @@ export interface GcpAccount {
   updatedAt: string;
 }
 
-export interface CloudVpsDetails {
+interface CloudVpsDetails {
   provider: "gcp";
   accountId: number;
   accountName: string;
@@ -66,7 +66,7 @@ export interface VpsActionResult {
 }
 
 export type HostRunStatus = "pending" | "running" | "succeeded" | "failed" | "timed_out";
-export type AiReviewStatus = "success" | "running" | "failed" | "unknown";
+type AiReviewStatus = "success" | "running" | "failed" | "unknown";
 
 export interface ReleaseSummary {
   id: number;
@@ -105,7 +105,7 @@ export interface RunLog {
   updatedAt: string;
 }
 
-export interface RecentOperation {
+interface RecentOperation {
   id: number;
   batchId: string;
   hostId: number | null;

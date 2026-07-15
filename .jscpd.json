@@ -1,0 +1,13 @@
+{
+  "threshold": 5,
+  "minLines": 14,
+  "minTokens": 80,
+  "mode": "strict",
+  "reporters": ["console", "threshold"],
+  "ignore": [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "tests/**",
+    "src/constants/cloudShellScript.ts"
+  ]
+}
