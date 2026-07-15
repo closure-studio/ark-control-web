@@ -207,6 +207,13 @@ test.describe("core interactions", () => {
     await expect(page).toHaveTitle("Ark Control");
     await expect(page).toHaveURL(/\/dashboard$/);
 
+    const navigationWidths = await page
+      .getByRole("navigation", { name: "Primary navigation" })
+      .getByRole("link")
+      .evaluateAll((links) => links.map((link) => link.getBoundingClientRect().width));
+    expect(new Set(navigationWidths).size).toBe(1);
+    expect(navigationWidths[0]).toBeGreaterThan(200);
+
     await page.getByRole("link", { name: "VPS", exact: true }).click();
     await expect(page).toHaveURL(/\/vps$/);
     await page.getByPlaceholder("Search VPS").fill("stopped");
@@ -224,6 +231,32 @@ test.describe("core interactions", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     expect(browserErrors).toEqual([]);
+  });
+
+  test("top bar remains glassy and fixed while scrolling", async ({ page }) => {
+    await mockApi(page);
+    await page.setViewportSize({ width: 1440, height: 420 });
+    await page.goto("/releases");
+    await expect(page.getByRole("heading", { level: 1, name: "Releases" })).toBeVisible();
+
+    const topbar = page.locator(".app-topbar");
+    const styles = await topbar.evaluate((element) => {
+      const computed = getComputedStyle(element);
+      return {
+        position: computed.position,
+        backgroundColor: computed.backgroundColor,
+        backdropFilter: computed.backdropFilter
+      };
+    });
+    expect(styles.position).toBe("sticky");
+    expect(styles.backgroundColor).toContain("/ 0.64)");
+    expect(styles.backdropFilter).toContain("blur(18px)");
+    expect((await topbar.boundingBox())?.y).toBe(0);
+
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    expect((await topbar.boundingBox())?.y).toBe(0);
+    expect(await topbar.evaluate((element) => getComputedStyle(element).backdropFilter)).toBe(styles.backdropFilter);
   });
 
   test("administrator token opens the authenticated dashboard", async ({ page }) => {

@@ -23,6 +23,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label="Navigation drawer"
         checked={drawerOpen}
         className="drawer-toggle"
+        id="navigation-drawer"
         onChange={(event) => setDrawerOpen(event.target.checked)}
         type="checkbox"
       />
@@ -62,29 +63,24 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <div className="drawer-side z-40">
-        <button aria-label="Close navigation" className="drawer-overlay" onClick={() => setDrawerOpen(false)} type="button" />
+        <label aria-label="Close navigation" className="drawer-overlay" htmlFor="navigation-drawer" />
         <aside className="app-sidebar flex min-h-full w-64 flex-col border-r">
-          <div className="border-b border-white/10 p-4">
-            <div className="flex items-center gap-3">
-              <div className="brand-device device-icon">
-                <ShieldCheck aria-hidden="true" size={21} />
-              </div>
-              <div className="min-w-0">
-                <strong className="block truncate text-sm">Ark Control</strong>
-                <p className="sidebar-muted mt-0.5 text-xs">Operator Console</p>
-              </div>
+          <header className="sidebar-brand border-b border-white/10">
+            <div className="device-icon">
+              <ShieldCheck aria-hidden="true" size={19} />
             </div>
-          </div>
+            <strong className="sidebar-brand-title">Ark Control</strong>
+          </header>
 
           <nav aria-label="Primary navigation" className="grow overflow-y-auto p-3">
             <p className="sidebar-muted mb-2 px-3 text-[0.65rem] font-bold uppercase">Workspace</p>
-            <ul className="menu menu-sm gap-1">
+            <ul className="menu menu-sm w-full gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <li key={item.path}>
+                  <li className="w-full" key={item.path}>
                     <NavLink
-                      className={({ isActive }) => cx(isActive && "active")}
+                      className={({ isActive }) => cx("w-full", isActive && "active")}
                       onClick={() => setDrawerOpen(false)}
                       to={item.path}
                     >
