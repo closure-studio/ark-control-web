@@ -1,6 +1,11 @@
 name = "ark-control-web"
 main = "worker/index.ts"
 compatibility_date = "2026-07-14"
+workers_dev = true
+
+[[services]]
+binding = "API"
+service = "ark-control-api"
 
 [assets]
 directory = "dist"

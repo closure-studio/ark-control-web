@@ -9,10 +9,11 @@ Single React control-plane dashboard served by a Cloudflare Worker:
 /releases
 ```
 
-The SPA uses React, Tailwind CSS, and DaisyUI. It calls the same-origin
-`ark-control-api` resource routes under `/api/*`. Configure Cloudflare routing
-so the API Worker owns the more-specific `console.example.com/api/*` route and
-this Worker owns `console.example.com/*`.
+The SPA uses React, Tailwind CSS, and DaisyUI. It calls same-origin resource
+routes under `/api/*`; the Web Worker forwards those requests to
+`ark-control-api` through a Service Binding. This works on the default
+`workers.dev` domain and on any Custom Domain attached to this Worker without
+CORS or an additional API route.
 
 ```sh
 npm install

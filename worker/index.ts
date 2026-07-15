@@ -1,4 +1,5 @@
-interface Env {
+export interface Env {
+  API: Fetcher;
   ASSETS: Fetcher;
 }
 
@@ -12,6 +13,10 @@ function assetRequest(request: Request, pathname: string): Request {
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
+      return env.API.fetch(request);
+    }
+
     if (url.pathname === "/") {
       return Response.redirect(new URL("/dashboard", url), 302);
     }
