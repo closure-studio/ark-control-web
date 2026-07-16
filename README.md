@@ -15,6 +15,9 @@ routes under `/api/*`; the Web Worker forwards those requests to
 `workers.dev` domain and on any Custom Domain attached to this Worker without
 CORS or an additional API route.
 
+The Cloud Shell setup copied from the Accounts page prompts for the existing
+`ADMIN_TOKEN` and uses it only for the account registration request.
+
 ```sh
 npm install
 npm test

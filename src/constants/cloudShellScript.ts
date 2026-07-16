@@ -10,6 +10,13 @@ WIF_PROVIDER_RESOURCE="//iam.googleapis.com/projects/\${PROJECT_NUMBER}/location
 DEFAULT_ZONE="us-central1-c"
 ARK_CONTROL_BASE_URL="\${ARK_CONTROL_BASE_URL:-https://ark-control-api.dltest.workers.dev}"
 
+read -rsp "Ark Control admin token: " ARK_CONTROL_ADMIN_TOKEN
+echo
+if [[ -z "\${ARK_CONTROL_ADMIN_TOKEN}" ]]; then
+  echo "Ark Control admin token is required." >&2
+  exit 1
+fi
+
 gcloud services enable iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com compute.googleapis.com
 gcloud iam service-accounts describe "\${SERVICE_ACCOUNT_EMAIL}" --project="\${PROJECT_ID}" >/dev/null 2>&1 || gcloud iam service-accounts create "\${SERVICE_ACCOUNT_ID}" --project="\${PROJECT_ID}" --display-name="Ark VPS Manager"
 gcloud iam workload-identity-pools describe "\${WIF_POOL_ID}" --project="\${PROJECT_ID}" --location="global" >/dev/null 2>&1 || gcloud iam workload-identity-pools create "\${WIF_POOL_ID}" --project="\${PROJECT_ID}" --location="global" --display-name="Ark Control"
@@ -18,6 +25,7 @@ gcloud iam service-accounts add-iam-policy-binding "\${SERVICE_ACCOUNT_EMAIL}" -
 gcloud projects add-iam-policy-binding "\${PROJECT_ID}" --member="serviceAccount:\${SERVICE_ACCOUNT_EMAIL}" --role="roles/compute.instanceAdmin.v1"
 
 curl -fsS -X POST "\${ARK_CONTROL_BASE_URL}/api/public/accounts" \
+  -H "authorization: Bearer \${ARK_CONTROL_ADMIN_TOKEN}" \
   -H "content-type: application/json" \
   --data "$(cat <<EOF
 {
@@ -29,6 +37,8 @@ curl -fsS -X POST "\${ARK_CONTROL_BASE_URL}/api/public/accounts" \
   "defaultZone": "\${DEFAULT_ZONE}"
 }
 EOF
-)"`;
+)"
+
+unset ARK_CONTROL_ADMIN_TOKEN`;
 
 export const CLOUD_SHELL_SCRIPT = SOURCE.replaceAll(String.raw`\${`, "${");
