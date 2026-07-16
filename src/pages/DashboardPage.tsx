@@ -1,7 +1,6 @@
 import {
   Activity,
   ArrowRight,
-  CircleAlert,
   CircleCheck,
   Clock3,
   CloudCog,
@@ -9,8 +8,7 @@ import {
   FileText,
   PackageCheck,
   RadioTower,
-  Server,
-  TriangleAlert
+  Server
 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -28,7 +26,6 @@ import type { DashboardResponse } from "@/types";
 import { formatDateTime, messageForError } from "@/utils";
 
 const DASHBOARD_POLL_INTERVAL_MS = 15_000;
-const MAX_VISIBLE_INVENTORY_ERRORS = 3;
 const EMPTY_COUNT = 0;
 const PERCENT_SCALE = 100;
 
@@ -39,30 +36,18 @@ const HEALTH_STATES = {
     detail: "Deployment checks are currently running",
     className: "border-info/25 bg-info/10 text-info"
   },
-  attention: {
-    icon: CircleAlert,
-    label: "Attention required",
-    detail: "One or more control plane checks need review",
-    className: "border-error/25 bg-error/10 text-error"
-  },
   healthy: {
     icon: CircleCheck,
     label: "Systems operational",
-    detail: "No active deployment or inventory issues",
+    detail: "No active release deployments",
     className: "border-success/25 bg-success/10 text-success"
   }
-} as const;
-
-const OVERVIEW_META_TONE_CLASSES = {
-  neutral: "mt-0.5 text-base-content/40",
-  success: "mt-0.5 text-success"
 } as const;
 
 type DashboardHealth = keyof typeof HEALTH_STATES;
 type RecentOperation = DashboardResponse["recentOperations"][number];
 
 function dashboardHealth(data: DashboardResponse): DashboardHealth {
-  if (data.summary.watcher.lastCheckError || data.errors.length > EMPTY_COUNT) return "attention";
   if (data.summary.watcher.hasNonTerminalHostRuns) return "active";
   return "healthy";
 }
@@ -76,7 +61,6 @@ function DashboardOverview({ data }: { data: DashboardResponse }) {
   const health = HEALTH_STATES[dashboardHealth(data)];
   const HealthIcon = health.icon;
   const { accounts, vps, watcher } = data.summary;
-  const availability = percentage(vps.running, vps.total);
   const watcherCoverage = percentage(vps.watcherEnabled, vps.total);
 
   return (
@@ -96,28 +80,28 @@ function DashboardOverview({ data }: { data: DashboardResponse }) {
         <div className="dashboard-fleet-panel p-5 sm:p-6 xl:border-r xl:border-base-300">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-bold text-base-content/55">Fleet availability</p>
+              <p className="text-xs font-bold text-base-content/55">SSH host inventory</p>
               <p className="mt-3 flex items-end gap-2">
-                <strong className="text-4xl font-black leading-none text-base-content">{vps.running}</strong>
-                <span className="pb-0.5 text-sm font-semibold text-base-content/50">of {vps.total} online</span>
+                <strong className="text-4xl font-black leading-none text-base-content">{vps.total}</strong>
+                <span className="pb-0.5 text-sm font-semibold text-base-content/50">registered</span>
               </p>
             </div>
             <span className="dashboard-primary-icon"><Server aria-hidden="true" size={22} /></span>
           </div>
-          <div aria-label={`${availability}% of managed VPS online`} className="mt-6 h-2 overflow-hidden rounded-full bg-base-300" role="img">
-            <span className="block h-full rounded-full bg-success" style={{ width: `${availability}%` }} />
+          <div aria-label={`${watcherCoverage}% of managed VPS targeted by Watcher`} className="mt-6 h-2 overflow-hidden rounded-full bg-base-300" role="img">
+            <span className="block h-full rounded-full bg-success" style={{ width: `${watcherCoverage}%` }} />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/55">
-            <span><strong className="text-base-content">{availability}%</strong> available</span>
-            <span>{vps.stopped} stopped</span>
-            <span>{vps.unavailable} unavailable</span>
+            <span><strong className="text-base-content">{watcherCoverage}%</strong> Watcher coverage</span>
+            <span>{vps.watcherEnabled} enabled</span>
+            <span>{vps.total - vps.watcherEnabled} excluded</span>
           </div>
           <p className="mt-5 border-t border-base-300 pt-4 text-xs leading-5 text-base-content/60">{health.detail}</p>
         </div>
 
         <div className="grid grid-cols-2">
           <MetricCard
-            detail={`${vps.gcp} GCP, ${vps.manual} manual`}
+            detail="Standalone SSH records"
             icon={<Server aria-hidden="true" size={18} />}
             label="Managed VPS"
             value={String(vps.total)}
@@ -145,24 +129,22 @@ function DashboardOverview({ data }: { data: DashboardResponse }) {
         </div>
       </div>
 
-      <div className="dashboard-overview-meta grid border-t border-base-300 md:grid-cols-3">
+      <div className="dashboard-overview-meta grid border-t border-base-300 md:grid-cols-2">
         <OverviewMeta icon={<FileText aria-hidden="true" size={15} />} label="Last APK" value={watcher.lastProcessedApkFilename ?? "None"} />
-        <OverviewMeta icon={<CircleCheck aria-hidden="true" size={15} />} label="Last successful check" tone="success" value={formatDateTime(watcher.lastSuccessfulCheckAt)} />
         <OverviewMeta icon={<Clock3 aria-hidden="true" size={15} />} label="Updated" value={formatDateTime(data.generatedAt)} />
       </div>
     </section>
   );
 }
 
-function OverviewMeta({ icon, label, value, tone = "neutral" }: {
+function OverviewMeta({ icon, label, value }: {
   icon: ReactNode;
   label: string;
   value: string;
-  tone?: "neutral" | "success";
 }) {
   return (
     <div className="dashboard-meta-item flex min-w-0 items-start gap-3 px-5 py-4">
-      <span className={OVERVIEW_META_TONE_CLASSES[tone]}>{icon}</span>
+      <span className="mt-0.5 text-base-content/40">{icon}</span>
       <div className="min-w-0">
         <p className="text-[0.68rem] font-bold uppercase text-base-content/45">{label}</p>
         <p className="mt-1 break-words text-xs font-semibold leading-5 text-base-content/75">{value}</p>
@@ -259,30 +241,6 @@ function SectionHeader({ id, title, linkLabel, linkTo }: { id: string; title: st
   );
 }
 
-function DashboardAlerts({ data }: { data: DashboardResponse }) {
-  return (
-    <>
-      {data.summary.watcher.lastCheckError ? (
-        <div className="alert alert-error alert-soft items-start" role="alert">
-          <TriangleAlert aria-hidden="true" className="mt-0.5 shrink-0" size={19} />
-          <div className="min-w-0"><h3 className="font-extrabold">Watcher check failed</h3><p className="mt-1 break-words text-sm">{data.summary.watcher.lastCheckError}</p></div>
-        </div>
-      ) : null}
-      {data.errors.length > EMPTY_COUNT ? (
-        <div className="alert alert-warning alert-soft items-start" role="status">
-          <TriangleAlert aria-hidden="true" className="mt-0.5 shrink-0" size={19} />
-          <div className="min-w-0">
-            <h3 className="font-extrabold">Cloud inventory is partially unavailable</h3>
-            <ul className="mt-1 list-inside list-disc text-sm">
-              {data.errors.slice(EMPTY_COUNT, MAX_VISIBLE_INVENTORY_ERRORS).map((item, index) => <li className="break-words" key={`${item.accountId ?? "unknown"}-${index}`}>{item.message}</li>)}
-            </ul>
-          </div>
-        </div>
-      ) : null}
-    </>
-  );
-}
-
 export function DashboardPage({ api }: { api: ApiClient }) {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -320,7 +278,6 @@ export function DashboardPage({ api }: { api: ApiClient }) {
       {data ? (
         <div className="grid gap-5">
           <DashboardOverview data={data} />
-          <DashboardAlerts data={data} />
           <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
             <ReleaseActivity releases={data.recentReleases} />
             <OperationActivity operations={data.recentOperations} />

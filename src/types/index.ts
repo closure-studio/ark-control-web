@@ -1,6 +1,3 @@
-type OperationStatus = "submitted" | "succeeded" | "failed" | "skipped";
-export type VpsAction = "start" | "stop" | "delete";
-
 export interface GcpAccount {
   id: number;
   name: string;
@@ -14,18 +11,15 @@ export interface GcpAccount {
   updatedAt: string;
 }
 
-interface CloudVpsDetails {
-  provider: "gcp";
+export interface GcpOperationResult {
   accountId: number;
-  accountName: string;
   projectId: string;
   zone: string;
   instanceName: string;
-  status: string | null;
-  machineType: string | null;
-  internalIps: string[];
-  externalIps: string[];
-  error: string | null;
+  action: "create" | "start" | "stop" | "delete";
+  status: "submitted" | "succeeded" | "failed" | "skipped";
+  message?: string;
+  googleOperationName?: string;
 }
 
 export interface VpsResource {
@@ -34,35 +28,13 @@ export interface VpsResource {
   address: string;
   port: number;
   username: string;
-  verifyCommand: string | null;
   watcherEnabled: boolean;
-  source: "gcp" | "manual";
-  cloud: CloudVpsDetails | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface VpsInventoryResponse {
   vps: VpsResource[];
-  errors: Array<{
-    scope: "account" | "project" | "instance";
-    message: string;
-    accountId?: number;
-    hostId?: number;
-  }>;
-}
-
-export interface VpsActionResult {
-  hostId: number;
-  hostName: string;
-  action: VpsAction;
-  status: OperationStatus;
-  message?: string;
-  accountId?: number;
-  projectId?: string;
-  zone?: string;
-  instanceName?: string;
-  googleOperationName?: string;
 }
 
 export type HostRunStatus = "pending" | "running" | "succeeded" | "failed" | "timed_out";
@@ -128,24 +100,16 @@ export interface DashboardResponse {
     accounts: { total: number; enabled: number };
     vps: {
       total: number;
-      gcp: number;
-      manual: number;
-      running: number;
-      stopped: number;
-      unavailable: number;
       watcherEnabled: number;
     };
     watcher: {
       lastProcessedApkFilename: string | null;
-      lastSuccessfulCheckAt: string | null;
-      lastCheckError: string | null;
       hasNonTerminalHostRuns: boolean;
       nonTerminalHostRunCount: number;
     };
   };
   recentReleases: ReleaseSummary[];
   recentOperations: RecentOperation[];
-  errors: VpsInventoryResponse["errors"];
 }
 
 export type AccountInput = Pick<
@@ -164,7 +128,6 @@ export interface VpsFormInput {
   port: number;
   username: string;
   password?: string;
-  verifyCommand: string | null;
   watcherEnabled?: boolean;
 }
 

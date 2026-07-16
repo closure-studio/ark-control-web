@@ -10,18 +10,15 @@ const dashboard = {
   generatedAt: "2026-07-14T00:00:00.000Z",
   summary: {
     accounts: { total: 0, enabled: 0 },
-    vps: { total: 0, gcp: 0, manual: 0, running: 0, stopped: 0, unavailable: 0, watcherEnabled: 0 },
+    vps: { total: 0, watcherEnabled: 0 },
     watcher: {
       lastProcessedApkFilename: null,
-      lastSuccessfulCheckAt: null,
-      lastCheckError: null,
       hasNonTerminalHostRuns: false,
       nonTerminalHostRunCount: 0
     }
   },
   recentReleases: [],
-  recentOperations: [],
-  errors: []
+  recentOperations: []
 };
 
 describe("unified application authentication", () => {
@@ -33,12 +30,8 @@ describe("unified application authentication", () => {
       removeItem: (key: string) => values.delete(key),
       setItem: (key: string, value: string) => values.set(key, value)
     });
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
-      const path = String(input);
-      const body = path.includes("/api/vps/reconcile")
-        ? { linked: [], conflicts: [], errors: [] }
-        : dashboard;
-      return new Response(JSON.stringify(body), {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      return new Response(JSON.stringify(dashboard), {
         status: 200,
         headers: { "content-type": "application/json" }
       });
@@ -59,5 +52,7 @@ describe("unified application authentication", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument());
     expect(localStorage.getItem("ark-control-admin-token")).toBe("secret-token");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith("/api/dashboard", expect.any(Object));
   });
 });

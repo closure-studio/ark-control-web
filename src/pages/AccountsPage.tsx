@@ -207,8 +207,8 @@ export function AccountsPage({ api }: { api: ApiClient }) {
     if (!deleteTarget) return;
     setDeleteBusy(true);
     try {
-      const result = await api.deleteAccount(deleteTarget.id);
-      setNotice({ tone: "success", text: `${deleteTarget.name} and ${result.vps.length} linked VPS record${result.vps.length === 1 ? "" : "s"} were deleted.` });
+      await api.deleteAccount(deleteTarget.id);
+      setNotice({ tone: "success", text: `${deleteTarget.name} was deleted.` });
       setDeleteTarget(null);
       await load();
     } catch (deleteError) {
@@ -277,7 +277,7 @@ export function AccountsPage({ api }: { api: ApiClient }) {
       <ConfirmDialog
         busy={deleteBusy}
         confirmation={deleteTarget?.name ?? ""}
-        detail={<><p>All linked GCP VPS instances will be deleted before the account is removed.</p><p className="mt-2">If any cloud deletion fails, the account and failed VPS records remain available for retry.</p></>}
+        detail={<><p>This removes only the stored account configuration.</p><p className="mt-2">GCP instances and standalone SSH hosts are not deleted.</p></>}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => void confirmDelete()}
         open={deleteTarget !== null}

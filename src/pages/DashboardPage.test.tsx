@@ -13,17 +13,10 @@ const dashboard = {
     accounts: { total: 1, enabled: 1 },
     vps: {
       total: 3,
-      gcp: 2,
-      manual: 1,
-      running: 1,
-      stopped: 1,
-      unavailable: 1,
       watcherEnabled: 2
     },
     watcher: {
       lastProcessedApkFilename: "ark-production-release.apk",
-      lastSuccessfulCheckAt: "2026-07-14T11:55:00.000Z",
-      lastCheckError: null,
       hasNonTerminalHostRuns: true,
       nonTerminalHostRunCount: 1
     }
@@ -54,8 +47,7 @@ const dashboard = {
       createdAt: "2026-07-14T11:50:00.000Z",
       completedAt: "2026-07-14T11:51:00.000Z"
     }
-  ],
-  errors: []
+  ]
 } satisfies DashboardResponse;
 
 function dashboardResponse() {
@@ -83,7 +75,8 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Control plane overview" })).toBeInTheDocument();
     expect(screen.getByText("Verification in progress")).toBeInTheDocument();
-    expect(screen.getByLabelText("33% of managed VPS online")).toBeInTheDocument();
+    expect(screen.getByLabelText("67% of managed VPS targeted by Watcher")).toBeInTheDocument();
+    expect(screen.queryByText("Last successful check")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recent releases" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recent operations" })).toBeInTheDocument();
     expect(screen.queryByText("Pending 0")).not.toBeInTheDocument();

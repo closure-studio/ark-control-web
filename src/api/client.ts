@@ -2,12 +2,11 @@ import type {
   AccountInput,
   DashboardResponse,
   GcpAccount,
+  GcpOperationResult,
   HostRun,
   ReleasesResponse,
   RunLog,
   VerifyResult,
-  VpsAction,
-  VpsActionResult,
   VpsFormInput,
   VpsInventoryResponse,
   VpsResource
@@ -90,11 +89,11 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
         body: JSON.stringify(input)
       }),
     deleteAccount: (id: number) =>
-      request<{ deleted: true; vps: Array<{ id: number; name: string }> }>(`/api/accounts/${id}`, {
+      request<{ deleted: true }>(`/api/accounts/${id}`, {
         method: "DELETE"
       }),
     provisionVps: (accountId: number) =>
-      request<{ vps: VpsResource; operation: VpsActionResult }>(`/api/accounts/${accountId}/vps`, {
+      request<{ vps: VpsResource; operation: GcpOperationResult }>(`/api/accounts/${accountId}/vps`, {
         method: "POST"
       }),
     listVps: () => request<VpsInventoryResponse>("/api/vps"),
@@ -114,22 +113,6 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
       }),
     verifyVps: (id: number) =>
       request<{ result: VerifyResult }>(`/api/vps/${id}/verify`, { method: "POST" }),
-    runVpsAction: (id: number, action: Exclude<VpsAction, "delete">) =>
-      request<{ result: VpsActionResult }>(`/api/vps/${id}/actions`, {
-        method: "POST",
-        body: JSON.stringify({ action })
-      }),
-    runBatchVpsAction: (ids: number[], action: VpsAction) =>
-      request<{ results: VpsActionResult[] }>("/api/vps/actions", {
-        method: "POST",
-        body: JSON.stringify({ ids, action })
-      }),
-    reconcileVps: () =>
-      request<{
-        linked: unknown[];
-        conflicts: unknown[];
-        errors: Array<{ accountId: number; message: string }>;
-      }>("/api/vps/reconcile", { method: "POST" }),
     listReleases: (limit: number, offset: number) =>
       request<ReleasesResponse>(`/api/releases?limit=${limit}&offset=${offset}`),
     listReleaseRuns: (releaseId: number) =>
