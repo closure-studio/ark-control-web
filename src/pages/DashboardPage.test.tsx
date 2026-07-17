@@ -51,7 +51,7 @@ const dashboard = {
 } satisfies DashboardResponse;
 
 function dashboardResponse() {
-  return new Response(JSON.stringify(dashboard), {
+  return new Response(JSON.stringify({ data: dashboard }), {
     headers: { "content-type": "application/json" },
     status: 200
   });
@@ -84,7 +84,9 @@ describe("DashboardPage", () => {
 
   it("recovers when a failed initial request is retried", async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ message: "Dashboard unavailable" }), {
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        error: { code: "dashboard_unavailable", message: "Dashboard unavailable" }
+      }), {
         headers: { "content-type": "application/json" },
         status: 503
       }))

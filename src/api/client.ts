@@ -28,7 +28,37 @@ class ApiError extends Error {
   }
 }
 
-type ErrorBody = { error?: string; message?: string; details?: unknown };
+type JsonObject = Record<string, unknown>;
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function unwrapData<T>(body: unknown): T {
+  if (isJsonObject(body) && Object.hasOwn(body, "data")) return body.data as T;
+  return body as T;
+}
+
+function parseApiError(body: unknown, status: number) {
+  const fallbackMessage = `Request failed with status ${status}.`;
+  if (!isJsonObject(body)) {
+    return { code: "request_failed", message: fallbackMessage, details: undefined };
+  }
+
+  if (isJsonObject(body.error)) {
+    return {
+      code: typeof body.error.code === "string" ? body.error.code : "request_failed",
+      message: typeof body.error.message === "string" ? body.error.message : fallbackMessage,
+      details: body.error.details
+    };
+  }
+
+  return {
+    code: typeof body.error === "string" ? body.error : "request_failed",
+    message: typeof body.message === "string" ? body.message : fallbackMessage,
+    details: body.details
+  };
+}
 
 async function parseJson(response: Response): Promise<unknown> {
   const text = await response.text();
@@ -63,16 +93,16 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
 
     const body = await parseJson(response);
     if (!response.ok) {
-      const errorBody = (body && typeof body === "object" ? body : {}) as ErrorBody;
+      const apiError = parseApiError(body, response.status);
       if (response.status === HTTP_UNAUTHORIZED) onUnauthorized();
       throw new ApiError(
-        errorBody.error ?? "request_failed",
-        errorBody.message ?? `Request failed with status ${response.status}.`,
+        apiError.code,
+        apiError.message,
         response.status,
-        errorBody.details
+        apiError.details
       );
     }
-    return body as T;
+    return unwrapData<T>(body);
   }
 
   return {
