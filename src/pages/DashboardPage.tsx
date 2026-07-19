@@ -22,10 +22,14 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { usePolling } from "@/hooks/usePolling";
-import type { DashboardResponse } from "@/types";
+import type { GcpAccount, GcpOperation, ReleaseSummary, VpsResource } from "@/types";
 import { formatDateTime, messageForError } from "@/utils";
 
 const DASHBOARD_POLL_INTERVAL_MS = 15_000;
+const DASHBOARD_OPERATION_LIMIT = 10;
+const DASHBOARD_RELEASE_LIMIT = 5;
+const ACTIVE_RUN_SAMPLE_LIMIT = 1;
+const FIRST_PAGE_OFFSET = 0;
 const EMPTY_COUNT = 0;
 const PERCENT_SCALE = 100;
 
@@ -45,10 +49,17 @@ const HEALTH_STATES = {
 } as const;
 
 type DashboardHealth = keyof typeof HEALTH_STATES;
-type RecentOperation = DashboardResponse["recentOperations"][number];
+type DashboardData = {
+  refreshedAt: string;
+  accounts: GcpAccount[];
+  vps: VpsResource[];
+  recentReleases: ReleaseSummary[];
+  recentOperations: GcpOperation[];
+  activeRunCount: number;
+};
 
-function dashboardHealth(data: DashboardResponse): DashboardHealth {
-  if (data.summary.watcher.hasNonTerminalHostRuns) return "active";
+function dashboardHealth(data: DashboardData): DashboardHealth {
+  if (data.activeRunCount > EMPTY_COUNT) return "active";
   return "healthy";
 }
 
@@ -57,18 +68,20 @@ function percentage(part: number, total: number) {
   return Math.round((part / total) * PERCENT_SCALE);
 }
 
-function DashboardOverview({ data }: { data: DashboardResponse }) {
+function DashboardOverview({ data }: { data: DashboardData }) {
   const health = HEALTH_STATES[dashboardHealth(data)];
   const HealthIcon = health.icon;
-  const { accounts, vps, watcher } = data.summary;
-  const watcherCoverage = percentage(vps.watcherEnabled, vps.total);
+  const enabledAccountCount = data.accounts.filter((account) => account.enabled).length;
+  const watcherEnabledCount = data.vps.filter((vps) => vps.watcherEnabled).length;
+  const watcherCoverage = percentage(watcherEnabledCount, data.vps.length);
+  const lastProcessedApkFilename = data.recentReleases[0]?.apkFilename ?? null;
 
   return (
     <section aria-labelledby="control-plane-overview" className="dashboard-overview overflow-hidden border border-base-300 bg-base-100">
       <div className="flex flex-col gap-3 border-b border-base-300 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
           <h2 className="text-base font-extrabold" id="control-plane-overview">Control plane overview</h2>
-          <p className="mt-1 text-xs text-base-content/55">Generated {formatDateTime(data.generatedAt)}</p>
+          <p className="mt-1 text-xs text-base-content/55">Updated {formatDateTime(data.refreshedAt)}</p>
         </div>
         <div className={`inline-flex w-fit items-center gap-2 rounded border px-3 py-2 text-xs font-bold ${health.className}`}>
           <HealthIcon aria-hidden="true" size={16} />
@@ -82,7 +95,7 @@ function DashboardOverview({ data }: { data: DashboardResponse }) {
             <div>
               <p className="text-xs font-bold text-base-content/55">SSH host inventory</p>
               <p className="mt-3 flex items-end gap-2">
-                <strong className="text-4xl font-black leading-none text-base-content">{vps.total}</strong>
+                <strong className="text-4xl font-black leading-none text-base-content">{data.vps.length}</strong>
                 <span className="pb-0.5 text-sm font-semibold text-base-content/50">registered</span>
               </p>
             </div>
@@ -93,8 +106,8 @@ function DashboardOverview({ data }: { data: DashboardResponse }) {
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/55">
             <span><strong className="text-base-content">{watcherCoverage}%</strong> Watcher coverage</span>
-            <span>{vps.watcherEnabled} enabled</span>
-            <span>{vps.total - vps.watcherEnabled} excluded</span>
+            <span>{watcherEnabledCount} enabled</span>
+            <span>{data.vps.length - watcherEnabledCount} excluded</span>
           </div>
           <p className="mt-5 border-t border-base-300 pt-4 text-xs leading-5 text-base-content/60">{health.detail}</p>
         </div>
@@ -104,34 +117,34 @@ function DashboardOverview({ data }: { data: DashboardResponse }) {
             detail="Standalone SSH records"
             icon={<Server aria-hidden="true" size={18} />}
             label="Managed VPS"
-            value={String(vps.total)}
+            value={String(data.vps.length)}
           />
           <MetricCard
             detail={`${watcherCoverage}% fleet coverage`}
             icon={<RadioTower aria-hidden="true" size={18} />}
             label="Watcher enabled"
             tone="success"
-            value={String(vps.watcherEnabled)}
+            value={String(watcherEnabledCount)}
           />
           <MetricCard
-            detail={`${accounts.enabled} enabled`}
+            detail={`${enabledAccountCount} enabled`}
             icon={<CloudCog aria-hidden="true" size={18} />}
             label="GCP accounts"
-            value={String(accounts.total)}
+            value={String(data.accounts.length)}
           />
           <MetricCard
             detail="Release verification"
             icon={<PackageCheck aria-hidden="true" size={18} />}
             label="Active runs"
-            tone={watcher.hasNonTerminalHostRuns ? "warning" : "neutral"}
-            value={String(watcher.nonTerminalHostRunCount)}
+            tone={data.activeRunCount > EMPTY_COUNT ? "warning" : "neutral"}
+            value={String(data.activeRunCount)}
           />
         </div>
       </div>
 
       <div className="dashboard-overview-meta grid border-t border-base-300 md:grid-cols-2">
-        <OverviewMeta icon={<FileText aria-hidden="true" size={15} />} label="Last APK" value={watcher.lastProcessedApkFilename ?? "None"} />
-        <OverviewMeta icon={<Clock3 aria-hidden="true" size={15} />} label="Updated" value={formatDateTime(data.generatedAt)} />
+        <OverviewMeta icon={<FileText aria-hidden="true" size={15} />} label="Last APK" value={lastProcessedApkFilename ?? "None"} />
+        <OverviewMeta icon={<Clock3 aria-hidden="true" size={15} />} label="Updated" value={formatDateTime(data.refreshedAt)} />
       </div>
     </section>
   );
@@ -153,7 +166,7 @@ function OverviewMeta({ icon, label, value }: {
   );
 }
 
-function ReleaseActivity({ releases }: { releases: DashboardResponse["recentReleases"] }) {
+function ReleaseActivity({ releases }: { releases: ReleaseSummary[] }) {
   return (
     <section aria-labelledby="recent-releases-title" className="dashboard-section min-w-0 overflow-hidden border border-base-300 bg-base-100">
       <SectionHeader id="recent-releases-title" linkLabel="All releases" linkTo="/releases" title="Recent releases" />
@@ -198,7 +211,7 @@ function ReleaseActivity({ releases }: { releases: DashboardResponse["recentRele
   );
 }
 
-function OperationActivity({ operations }: { operations: DashboardResponse["recentOperations"] }) {
+function OperationActivity({ operations }: { operations: GcpOperation[] }) {
   return (
     <section aria-labelledby="recent-operations-title" className="dashboard-section min-w-0 overflow-hidden border border-base-300 bg-base-100">
       <SectionHeader id="recent-operations-title" linkLabel="Open VPS" linkTo="/vps" title="Recent operations" />
@@ -213,7 +226,7 @@ function OperationActivity({ operations }: { operations: DashboardResponse["rece
   );
 }
 
-function OperationRow({ operation }: { operation: RecentOperation }) {
+function OperationRow({ operation }: { operation: GcpOperation }) {
   return (
     <article className="dashboard-operation relative px-5 py-4 sm:px-6">
       <span className="dashboard-operation-marker" />
@@ -242,15 +255,28 @@ function SectionHeader({ id, title, linkLabel, linkTo }: { id: string; title: st
 }
 
 export function DashboardPage({ api }: { api: ApiClient }) {
-  const [data, setData] = useState<DashboardResponse | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const response = await api.getDashboard();
-      setData(response);
+      const [accounts, vps, releases, operations, activeRuns] = await Promise.all([
+        api.listAccounts(),
+        api.listVps(),
+        api.listReleases(DASHBOARD_RELEASE_LIMIT, FIRST_PAGE_OFFSET),
+        api.listOperations(DASHBOARD_OPERATION_LIMIT, FIRST_PAGE_OFFSET),
+        api.listRuns("active", ACTIVE_RUN_SAMPLE_LIMIT, FIRST_PAGE_OFFSET)
+      ]);
+      setData({
+        refreshedAt: new Date().toISOString(),
+        accounts: accounts.accounts,
+        vps: vps.vps,
+        recentReleases: releases.releases,
+        recentOperations: operations.operations,
+        activeRunCount: activeRuns.pagination.total
+      });
       setError(null);
     } catch (loadError) {
       setError(messageForError(loadError, "Unable to load dashboard."));

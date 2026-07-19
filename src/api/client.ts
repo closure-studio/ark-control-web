@@ -1,11 +1,13 @@
 import type {
   AccountInput,
-  DashboardResponse,
   GcpAccount,
   GcpOperationResult,
   HostRun,
+  HostRunListState,
+  OperationsResponse,
   ReleasesResponse,
   RunLog,
+  RunsResponse,
   VerifyResult,
   VpsFormInput,
   VpsInventoryResponse,
@@ -106,8 +108,9 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
   }
 
   return {
-    getDashboard: () => request<DashboardResponse>("/api/dashboard"),
     listAccounts: () => request<{ accounts: GcpAccount[] }>("/api/accounts"),
+    listOperations: (limit: number, offset: number) =>
+      request<OperationsResponse>(`/api/operations?limit=${limit}&offset=${offset}`),
     createAccount: (input: AccountInput) =>
       request<{ account: GcpAccount }>("/api/accounts", {
         method: "POST",
@@ -147,6 +150,10 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
       request<ReleasesResponse>(`/api/releases?limit=${limit}&offset=${offset}`),
     listReleaseRuns: (releaseId: number) =>
       request<{ runs: HostRun[] }>(`/api/releases/${releaseId}/runs`),
+    listRuns: (state: HostRunListState, limit: number, offset: number) =>
+      request<RunsResponse>(
+        `/api/runs?state=${state}&limit=${limit}&offset=${offset}`
+      ),
     getRunLog: (runId: number) => request<RunLog>(`/api/runs/${runId}/log`)
   };
 }

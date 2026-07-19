@@ -15,7 +15,7 @@ describe("web worker", () => {
       API: fetcher(apiFetch),
       ASSETS: fetcher(assetsFetch)
     };
-    const request = new Request("https://ark-control-web.dltest.workers.dev/api/dashboard", {
+    const request = new Request("https://ark-control-web.dltest.workers.dev/api/operations", {
       headers: { authorization: "Bearer test-token" }
     });
 

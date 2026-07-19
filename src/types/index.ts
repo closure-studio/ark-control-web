@@ -22,6 +22,26 @@ export interface GcpOperationResult {
   googleOperationName?: string;
 }
 
+export interface GcpOperation {
+  id: number;
+  batchId: string;
+  accountId: number | null;
+  accountName: string | null;
+  projectId: string;
+  zone: string;
+  instanceName: string;
+  action: GcpOperationResult["action"];
+  status: GcpOperationResult["status"];
+  message: string | null;
+  googleOperationName: string | null;
+  createdAt: string;
+}
+
+export interface OperationsResponse {
+  operations: GcpOperation[];
+  pagination: { limit: number; offset: number; count: number; total: number };
+}
+
 export interface VpsResource {
   id: number;
   name: string;
@@ -71,45 +91,17 @@ export interface HostRun {
   updatedAt: string;
 }
 
+export type HostRunListState = "all" | "active" | "terminal";
+
+export interface RunsResponse {
+  runs: HostRun[];
+  pagination: { limit: number; offset: number; count: number; total: number };
+}
+
 export interface RunLog {
   lastLogTail: string | null;
   lastCheckedAt: string | null;
   updatedAt: string;
-}
-
-interface RecentOperation {
-  id: number;
-  batchId: string;
-  hostId: number | null;
-  accountId: number | null;
-  accountName: string | null;
-  projectId: string;
-  zone: string;
-  instanceName: string;
-  action: string;
-  status: string;
-  message: string | null;
-  googleOperationName: string | null;
-  createdAt: string;
-  completedAt: string | null;
-}
-
-export interface DashboardResponse {
-  generatedAt: string;
-  summary: {
-    accounts: { total: number; enabled: number };
-    vps: {
-      total: number;
-      watcherEnabled: number;
-    };
-    watcher: {
-      lastProcessedApkFilename: string | null;
-      hasNonTerminalHostRuns: boolean;
-      nonTerminalHostRunCount: number;
-    };
-  };
-  recentReleases: ReleaseSummary[];
-  recentOperations: RecentOperation[];
 }
 
 export type AccountInput = Pick<

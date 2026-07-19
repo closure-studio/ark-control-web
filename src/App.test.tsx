@@ -6,20 +6,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "@/App";
 import { AuthProvider } from "@/contexts/AuthContext";
 
-const dashboard = {
-  generatedAt: "2026-07-14T00:00:00.000Z",
-  summary: {
-    accounts: { total: 0, enabled: 0 },
-    vps: { total: 0, watcherEnabled: 0 },
-    watcher: {
-      lastProcessedApkFilename: null,
-      hasNonTerminalHostRuns: false,
-      nonTerminalHostRunCount: 0
-    }
-  },
-  recentReleases: [],
-  recentOperations: []
-};
+function emptyApiResponse(input: RequestInfo | URL) {
+  const path = String(input);
+  if (path.startsWith("/api/accounts")) return { accounts: [] };
+  if (path.startsWith("/api/vps")) return { vps: [] };
+  if (path.startsWith("/api/releases")) {
+    return { releases: [], pagination: { limit: 5, offset: 0, count: 0 } };
+  }
+  if (path.startsWith("/api/operations")) {
+    return { operations: [], pagination: { limit: 10, offset: 0, count: 0, total: 0 } };
+  }
+  return { runs: [], pagination: { limit: 1, offset: 0, count: 0, total: 0 } };
+}
 
 describe("unified application authentication", () => {
   beforeEach(() => {
@@ -30,8 +28,8 @@ describe("unified application authentication", () => {
       removeItem: (key: string) => values.delete(key),
       setItem: (key: string, value: string) => values.set(key, value)
     });
-    vi.stubGlobal("fetch", vi.fn(async () => {
-      return new Response(JSON.stringify(dashboard), {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      return new Response(JSON.stringify(emptyApiResponse(input)), {
         status: 200,
         headers: { "content-type": "application/json" }
       });
@@ -52,7 +50,14 @@ describe("unified application authentication", () => {
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument());
     expect(localStorage.getItem("ark-control-admin-token")).toBe("secret-token");
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch).toHaveBeenCalledWith("/api/dashboard", expect.any(Object));
+    expect(fetch).toHaveBeenCalledTimes(5);
+    expect(fetch).toHaveBeenCalledWith("/api/accounts", expect.any(Object));
+    expect(fetch).toHaveBeenCalledWith("/api/vps", expect.any(Object));
+    expect(fetch).toHaveBeenCalledWith("/api/releases?limit=5&offset=0", expect.any(Object));
+    expect(fetch).toHaveBeenCalledWith("/api/operations?limit=10&offset=0", expect.any(Object));
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/runs?state=active&limit=1&offset=0",
+      expect.any(Object)
+    );
   });
 });

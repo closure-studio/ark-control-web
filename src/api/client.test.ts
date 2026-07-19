@@ -29,7 +29,7 @@ describe("API client response envelope", () => {
       }
     }, 401)));
 
-    await expect(createApiClient("token", onUnauthorized).getDashboard()).rejects.toMatchObject({
+    await expect(createApiClient("token", onUnauthorized).listOperations(10, 0)).rejects.toMatchObject({
       code: "unauthorized",
       message: "The session has expired.",
       status: 401,
