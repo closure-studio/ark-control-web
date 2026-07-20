@@ -114,10 +114,10 @@ async function mockApi(page: Page, seedToken = true) {
     else if (url.pathname === "/api/accounts") body = { accounts };
     else if (url.pathname === "/api/releases") body = { releases, pagination: { limit: 25, offset: 0, count: releases.length } };
     else if (url.pathname === "/api/operations") body = { operations: [{ id: 1, batchId: "batch-1", accountId: 7, accountName: accounts[0].name, projectId: accounts[0].projectId, zone: "us-central1-c", instanceName: vps[0].name, action: "start", status: "succeeded", message: null, googleOperationName: "operation-1", createdAt: "2026-07-14T11:50:00.000Z" }], pagination: { limit: 10, offset: 0, count: 1, total: 1 } };
-    else if (url.pathname === "/api/releases/41/runs") body = { runs };
+    else if (url.pathname === "/api/releases/41/host-runs") body = { runs };
     else if (url.pathname.startsWith("/api/releases/")) body = { runs: [] };
-    else if (url.pathname === "/api/runs") body = { runs: [runs[0]], pagination: { limit: 1, offset: 0, count: 1, total: 1 } };
-    else if (url.pathname === "/api/runs/81/log") body = { lastLogTail: "[12:00:01] deployment running\n[12:00:03] waiting for helper", lastCheckedAt: "2026-07-14T12:00:03.000Z", updatedAt: "2026-07-14T12:00:03.000Z" };
+    else if (url.pathname === "/api/host-runs") body = { runs: [runs[0]], pagination: { limit: 1, offset: 0, count: 1, total: 1 } };
+    else if (url.pathname === "/api/host-runs/81/log") body = { lastLogTail: "[12:00:01] deployment running\n[12:00:03] waiting for helper", lastCheckedAt: "2026-07-14T12:00:03.000Z", updatedAt: "2026-07-14T12:00:03.000Z" };
     await route.fulfill({ contentType: "application/json", status: 200, body: JSON.stringify(body) });
   });
 }

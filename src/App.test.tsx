@@ -56,7 +56,7 @@ describe("unified application authentication", () => {
     expect(fetch).toHaveBeenCalledWith("/api/releases?limit=5&offset=0", expect.any(Object));
     expect(fetch).toHaveBeenCalledWith("/api/operations?limit=10&offset=0", expect.any(Object));
     expect(fetch).toHaveBeenCalledWith(
-      "/api/runs?state=active&limit=1&offset=0",
+      "/api/host-runs?state=active&limit=1&offset=0",
       expect.any(Object)
     );
   });

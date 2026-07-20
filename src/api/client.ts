@@ -149,12 +149,12 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
     listReleases: (limit: number, offset: number) =>
       request<ReleasesResponse>(`/api/releases?limit=${limit}&offset=${offset}`),
     listReleaseRuns: (releaseId: number) =>
-      request<{ runs: HostRun[] }>(`/api/releases/${releaseId}/runs`),
+      request<{ runs: HostRun[] }>(`/api/releases/${releaseId}/host-runs`),
     listRuns: (state: HostRunListState, limit: number, offset: number) =>
       request<RunsResponse>(
-        `/api/runs?state=${state}&limit=${limit}&offset=${offset}`
+        `/api/host-runs?state=${state}&limit=${limit}&offset=${offset}`
       ),
-    getRunLog: (runId: number) => request<RunLog>(`/api/runs/${runId}/log`)
+    getRunLog: (runId: number) => request<RunLog>(`/api/host-runs/${runId}/log`)
   };
 }
 
