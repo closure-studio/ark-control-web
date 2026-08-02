@@ -31,7 +31,6 @@ curl -fsS -X POST "\${ARK_CONTROL_BASE_URL}/api/public/accounts" \
 {
   "name": "\${PROJECT_ID}",
   "projectId": "\${PROJECT_ID}",
-  "projectNumber": "\${PROJECT_NUMBER}",
   "serviceAccountEmail": "\${SERVICE_ACCOUNT_EMAIL}",
   "workloadIdentityProvider": "\${WIF_PROVIDER_RESOURCE}",
   "defaultZone": "\${DEFAULT_ZONE}"

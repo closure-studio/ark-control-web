@@ -18,6 +18,15 @@ CORS or an additional API route.
 The Cloud Shell setup copied from the Accounts page prompts for the existing
 `ADMIN_TOKEN` and uses it only for the account registration request.
 
+VPS inventory records have a fixed role chosen at creation: `redroid` hosts
+participate in APK delivery, while `arkhost` hosts participate in maintenance
+pre-actions. The Automation toggle includes or excludes a host from the work
+owned by its role.
+
+The Dashboard keeps scheduler repair explicit. Its `Repair alarms` action calls
+the authenticated, idempotent `/api/scheduler/ensure` endpoint; normal Alarm
+creation remains part of the API deployment workflow.
+
 ```sh
 npm install
 npm test

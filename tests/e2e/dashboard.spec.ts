@@ -24,6 +24,7 @@ const vps = [
     address: "34.120.10.20",
     port: 22,
     username: "root",
+    role: "redroid",
     watcherEnabled: true,
     createdAt: "2026-07-10T10:00:00.000Z",
     updatedAt: "2026-07-14T11:50:00.000Z"
@@ -34,6 +35,7 @@ const vps = [
     address: "34.120.10.21",
     port: 22,
     username: "root",
+    role: "redroid",
     watcherEnabled: false,
     createdAt: "2026-07-10T10:00:00.000Z",
     updatedAt: "2026-07-14T11:40:00.000Z"
@@ -44,6 +46,7 @@ const vps = [
     address: "vps-long-hostname.example.net",
     port: 2222,
     username: "operator",
+    role: "arkhost",
     watcherEnabled: true,
     createdAt: "2026-07-10T10:00:00.000Z",
     updatedAt: "2026-07-14T11:30:00.000Z"
@@ -55,7 +58,6 @@ const accounts = [
     id: 7,
     name: "Production control account",
     projectId: "ark-production-control-plane",
-    projectNumber: "123456789012",
     serviceAccountEmail: "ark-control-vps@ark-production-control-plane.iam.gserviceaccount.com",
     workloadIdentityProvider: "//iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/ark-control/providers/cloudflare",
     defaultZone: "us-central1-c",
@@ -110,6 +112,16 @@ async function mockApi(page: Page, seedToken = true) {
     const url = new URL(route.request().url());
     let body: unknown = {};
     if (url.pathname === "/api/vps") body = { vps };
+    else if (url.pathname === "/api/scheduler/ensure") {
+      body = {
+        ensuredJobs: [
+          "apk-delivery",
+          "maintenance-monitor",
+          "maintenance-pre-action",
+          "retention"
+        ]
+      };
+    }
     else if (url.pathname === "/api/vps/2/verify") body = { result: { connected: true, stdout: "ok", stderr: "", exitCode: 0, signal: null, success: true, timedOut: false } };
     else if (url.pathname === "/api/accounts") body = { accounts };
     else if (url.pathname === "/api/releases") body = { releases, pagination: { limit: 25, offset: 0, count: releases.length } };
@@ -118,7 +130,11 @@ async function mockApi(page: Page, seedToken = true) {
     else if (url.pathname.startsWith("/api/releases/")) body = { runs: [] };
     else if (url.pathname === "/api/host-runs") body = { runs: [runs[0]], pagination: { limit: 1, offset: 0, count: 1, total: 1 } };
     else if (url.pathname === "/api/host-runs/81/log") body = { lastLogTail: "[12:00:01] deployment running\n[12:00:03] waiting for helper", lastCheckedAt: "2026-07-14T12:00:03.000Z", updatedAt: "2026-07-14T12:00:03.000Z" };
-    await route.fulfill({ contentType: "application/json", status: 200, body: JSON.stringify(body) });
+    await route.fulfill({
+      contentType: "application/json",
+      status: 200,
+      body: JSON.stringify({ data: body })
+    });
   });
 }
 
@@ -171,8 +187,25 @@ test.describe("core interactions", () => {
     expect(new Set(navigationWidths).size).toBe(1);
     expect(navigationWidths[0]).toBeGreaterThan(200);
 
+    const repairRequest = page.waitForRequest((request) =>
+      request.url().endsWith("/api/scheduler/ensure")
+    );
+    await page.getByRole("button", { name: "Repair alarms" }).click();
+    expect((await repairRequest).method()).toBe("POST");
+    await expect(
+      page.getByText(
+        "Scheduler alarms ensured for APK delivery, maintenance monitor, maintenance pre-action, retention."
+      )
+    ).toBeVisible();
+
     await page.getByRole("link", { name: "VPS", exact: true }).click();
     await expect(page).toHaveURL(/\/vps$/);
+    await page.getByRole("combobox", { name: "VPS role" }).selectOption("arkhost");
+    await expect(
+      page.getByText("external-verification-host-with-long-name", { exact: true }).first()
+    ).toBeVisible();
+    await expect(page.getByText("ark-vps-production-primary", { exact: true })).toHaveCount(0);
+    await page.getByRole("combobox", { name: "VPS role" }).selectOption("all");
     await page.getByPlaceholder("Search VPS").fill("stopped");
     const vpsTable = page.locator("table").first();
     await expect(vpsTable.getByText("ark-vps-stopped-worker", { exact: true })).toBeVisible();

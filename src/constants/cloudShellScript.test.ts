@@ -9,6 +9,8 @@ describe("Cloud Shell setup script", () => {
     expect(CLOUD_SHELL_SCRIPT).toContain('authorization: Bearer ${ARK_CONTROL_ADMIN_TOKEN}');
     expect(CLOUD_SHELL_SCRIPT).toContain("unset ARK_CONTROL_ADMIN_TOKEN");
     expect(CLOUD_SHELL_SCRIPT).toContain("${PROJECT_ID}");
+    expect(CLOUD_SHELL_SCRIPT).toContain("${PROJECT_NUMBER}");
+    expect(CLOUD_SHELL_SCRIPT).not.toContain('"projectNumber"');
     expect(CLOUD_SHELL_SCRIPT).not.toContain(String.raw`\${`);
   });
 

@@ -6,8 +6,10 @@ import {
   CloudCog,
   ExternalLink,
   FileText,
+  LoaderCircle,
   PackageCheck,
   RadioTower,
+  RotateCw,
   Server
 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
@@ -18,11 +20,19 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { MetricCard } from "@/components/ui/MetricCard";
+import { Notice } from "@/components/ui/Notice";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { usePolling } from "@/hooks/usePolling";
-import type { GcpAccount, GcpOperation, ReleaseSummary, VpsResource } from "@/types";
+import { VPS_ROLE_ARKHOST, VPS_ROLE_REDROID } from "@/constants/vps";
+import type {
+  ControlJobName,
+  GcpAccount,
+  GcpOperation,
+  ReleaseSummary,
+  VpsResource
+} from "@/types";
 import { formatDateTime, messageForError } from "@/utils";
 
 const DASHBOARD_POLL_INTERVAL_MS = 15_000;
@@ -32,6 +42,13 @@ const ACTIVE_RUN_SAMPLE_LIMIT = 1;
 const FIRST_PAGE_OFFSET = 0;
 const EMPTY_COUNT = 0;
 const PERCENT_SCALE = 100;
+
+const CONTROL_JOB_LABELS: Record<ControlJobName, string> = {
+  "apk-delivery": "APK delivery",
+  "maintenance-monitor": "maintenance monitor",
+  "maintenance-pre-action": "maintenance pre-action",
+  retention: "retention"
+};
 
 const HEALTH_STATES = {
   active: {
@@ -72,8 +89,10 @@ function DashboardOverview({ data }: { data: DashboardData }) {
   const health = HEALTH_STATES[dashboardHealth(data)];
   const HealthIcon = health.icon;
   const enabledAccountCount = data.accounts.filter((account) => account.enabled).length;
-  const watcherEnabledCount = data.vps.filter((vps) => vps.watcherEnabled).length;
-  const watcherCoverage = percentage(watcherEnabledCount, data.vps.length);
+  const automationEnabledCount = data.vps.filter((vps) => vps.watcherEnabled).length;
+  const automationCoverage = percentage(automationEnabledCount, data.vps.length);
+  const redroidCount = data.vps.filter((vps) => vps.role === VPS_ROLE_REDROID).length;
+  const arkhostCount = data.vps.filter((vps) => vps.role === VPS_ROLE_ARKHOST).length;
   const lastProcessedApkFilename = data.recentReleases[0]?.apkFilename ?? null;
 
   return (
@@ -101,30 +120,30 @@ function DashboardOverview({ data }: { data: DashboardData }) {
             </div>
             <span className="dashboard-primary-icon"><Server aria-hidden="true" size={22} /></span>
           </div>
-          <div aria-label={`${watcherCoverage}% of managed VPS targeted by Watcher`} className="mt-6 h-2 overflow-hidden rounded-full bg-base-300" role="img">
-            <span className="block h-full rounded-full bg-success" style={{ width: `${watcherCoverage}%` }} />
+          <div aria-label={`${automationCoverage}% of managed VPS enabled for automation`} className="mt-6 h-2 overflow-hidden rounded-full bg-base-300" role="img">
+            <span className="block h-full rounded-full bg-success" style={{ width: `${automationCoverage}%` }} />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/55">
-            <span><strong className="text-base-content">{watcherCoverage}%</strong> Watcher coverage</span>
-            <span>{watcherEnabledCount} enabled</span>
-            <span>{data.vps.length - watcherEnabledCount} excluded</span>
+            <span><strong className="text-base-content">{automationCoverage}%</strong> Automation coverage</span>
+            <span>{automationEnabledCount} enabled</span>
+            <span>{data.vps.length - automationEnabledCount} excluded</span>
           </div>
           <p className="mt-5 border-t border-base-300 pt-4 text-xs leading-5 text-base-content/60">{health.detail}</p>
         </div>
 
         <div className="grid grid-cols-2">
           <MetricCard
-            detail="Standalone SSH records"
+            detail={`${redroidCount} ReDroid · ${arkhostCount} ArkHost`}
             icon={<Server aria-hidden="true" size={18} />}
             label="Managed VPS"
             value={String(data.vps.length)}
           />
           <MetricCard
-            detail={`${watcherCoverage}% fleet coverage`}
+            detail={`${automationCoverage}% fleet coverage`}
             icon={<RadioTower aria-hidden="true" size={18} />}
-            label="Watcher enabled"
+            label="Automation enabled"
             tone="success"
-            value={String(watcherEnabledCount)}
+            value={String(automationEnabledCount)}
           />
           <MetricCard
             detail={`${enabledAccountCount} enabled`}
@@ -258,6 +277,11 @@ export function DashboardPage({ api }: { api: ApiClient }) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [schedulerBusy, setSchedulerBusy] = useState(false);
+  const [schedulerNotice, setSchedulerNotice] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -290,14 +314,56 @@ export function DashboardPage({ api }: { api: ApiClient }) {
   }, [load]);
   usePolling(() => void load(false), DASHBOARD_POLL_INTERVAL_MS);
 
+  async function repairSchedulerAlarms() {
+    setSchedulerBusy(true);
+    setSchedulerNotice(null);
+    try {
+      const response = await api.ensureSchedulerAlarms();
+      const jobLabels = response.ensuredJobs.map((job) => CONTROL_JOB_LABELS[job]);
+      setSchedulerNotice({
+        tone: "success",
+        text: `Scheduler alarms ensured for ${jobLabels.join(", ")}.`
+      });
+    } catch (schedulerError) {
+      setSchedulerNotice({
+        tone: "error",
+        text: messageForError(schedulerError, "Unable to repair scheduler alarms.")
+      });
+    } finally {
+      setSchedulerBusy(false);
+    }
+  }
+
   return (
     <div className="dashboard-page min-w-0">
       <PageHeader
-        actions={<RefreshButton loading={loading} onClick={() => void load(true)} />}
+        actions={(
+          <>
+            <RefreshButton loading={loading} onClick={() => void load(true)} />
+            <button
+              className="btn btn-sm"
+              disabled={schedulerBusy}
+              onClick={() => void repairSchedulerAlarms()}
+              type="button"
+            >
+              {schedulerBusy ? (
+                <LoaderCircle aria-hidden="true" className="animate-spin" size={15} />
+              ) : (
+                <RotateCw aria-hidden="true" size={15} />
+              )}
+              Repair alarms
+            </button>
+          </>
+        )}
         description="Infrastructure health, deployment activity, and recent control plane changes."
         title="Dashboard"
       />
 
+      {schedulerNotice ? (
+        <Notice onClose={() => setSchedulerNotice(null)} tone={schedulerNotice.tone}>
+          {schedulerNotice.text}
+        </Notice>
+      ) : null}
       {error ? <ErrorAlert message={error} onRetry={() => void load(true)} /> : null}
       {loading && !data ? <LoadingBlock label="Loading control plane status" /> : null}
 

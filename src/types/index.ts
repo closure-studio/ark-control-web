@@ -2,7 +2,6 @@ export interface GcpAccount {
   id: number;
   name: string;
   projectId: string;
-  projectNumber: string;
   serviceAccountEmail: string;
   workloadIdentityProvider: string;
   defaultZone: string;
@@ -48,6 +47,7 @@ export interface VpsResource {
   address: string;
   port: number;
   username: string;
+  role: VpsRole;
   watcherEnabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -56,6 +56,8 @@ export interface VpsResource {
 export interface VpsInventoryResponse {
   vps: VpsResource[];
 }
+
+export type VpsRole = "redroid" | "arkhost";
 
 export type HostRunStatus = "pending" | "running" | "succeeded" | "failed" | "timed_out";
 type AiReviewStatus = "success" | "running" | "failed" | "unknown";
@@ -98,6 +100,16 @@ export interface RunsResponse {
   pagination: { limit: number; offset: number; count: number; total: number };
 }
 
+export type ControlJobName =
+  | "apk-delivery"
+  | "maintenance-monitor"
+  | "maintenance-pre-action"
+  | "retention";
+
+export interface SchedulerEnsureResponse {
+  ensuredJobs: ControlJobName[];
+}
+
 export interface RunLog {
   lastLogTail: string | null;
   lastCheckedAt: string | null;
@@ -108,7 +120,6 @@ export type AccountInput = Pick<
   GcpAccount,
   | "name"
   | "projectId"
-  | "projectNumber"
   | "serviceAccountEmail"
   | "workloadIdentityProvider"
   | "defaultZone"
@@ -119,9 +130,13 @@ export interface VpsFormInput {
   address: string;
   port: number;
   username: string;
+  role: VpsRole;
   password?: string;
-  watcherEnabled?: boolean;
+  watcherEnabled: boolean;
 }
+
+export type CreateVpsInput = Omit<VpsFormInput, "password"> & { password: string };
+export type UpdateVpsInput = Partial<Omit<VpsFormInput, "role">>;
 
 export interface VerifyResult {
   connected: boolean;

@@ -31,7 +31,6 @@ const WORKLOAD_IDENTITY_PROVIDER_FIELD: keyof AccountInput = "workloadIdentityPr
 const emptyAccount: AccountInput = {
   name: "",
   projectId: "",
-  projectNumber: "",
   serviceAccountEmail: "",
   workloadIdentityProvider: "",
   defaultZone: "us-central1-c"
@@ -55,7 +54,6 @@ function AccountForm({
       ? {
           name: account.name,
           projectId: account.projectId,
-          projectNumber: account.projectNumber,
           serviceAccountEmail: account.serviceAccountEmail,
           workloadIdentityProvider: account.workloadIdentityProvider,
           defaultZone: account.defaultZone
@@ -72,7 +70,6 @@ function AccountForm({
   const fields: Array<{ key: keyof AccountInput; label: string; placeholder: string; mono?: boolean }> = [
     { key: "name", label: "Account name", placeholder: "production" },
     { key: "projectId", label: "Project ID", placeholder: "ark-project", mono: true },
-    { key: "projectNumber", label: "Project number", placeholder: "1234567890", mono: true },
     { key: "serviceAccountEmail", label: "Service account", placeholder: "ark-control@project.iam.gserviceaccount.com", mono: true },
     { key: WORKLOAD_IDENTITY_PROVIDER_FIELD, label: "Workload identity provider", placeholder: "//iam.googleapis.com/projects/...", mono: true },
     { key: "defaultZone", label: "Default zone", placeholder: "us-central1-c", mono: true }
@@ -195,7 +192,7 @@ export function AccountsPage({ api }: { api: ApiClient }) {
     setNotice({ tone: "info", text: `Creating a VPS in ${account.name}.` });
     try {
       const result = await api.provisionVps(account.id);
-      setNotice({ tone: "success", text: `${result.vps.name} was created and added to Watcher.` });
+      setNotice({ tone: "success", text: `${result.vps.name} was created as a ReDroid host.` });
     } catch (provisionError) {
       setNotice({ tone: "error", text: messageForError(provisionError, "Unable to create GCP VPS.") });
     } finally {
@@ -248,8 +245,8 @@ export function AccountsPage({ api }: { api: ApiClient }) {
                     </div>
                     <dl className="grid gap-4 border-y border-base-300 py-4 text-sm sm:grid-cols-2">
                       <div><dt className="text-xs text-base-content/50">Default zone</dt><dd className="mt-1 font-mono font-bold">{account.defaultZone}</dd></div>
-                      <div><dt className="text-xs text-base-content/50">Project number</dt><dd className="mt-1 font-mono font-bold">{account.projectNumber}</dd></div>
                       <div className="sm:col-span-2"><dt className="text-xs text-base-content/50">Service account</dt><dd className="mt-1 break-all font-mono text-xs font-bold">{account.serviceAccountEmail}</dd></div>
+                      <div className="sm:col-span-2"><dt className="text-xs text-base-content/50">Workload identity provider</dt><dd className="mt-1 break-all font-mono text-xs font-bold">{account.workloadIdentityProvider}</dd></div>
                     </dl>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-xs text-base-content/50">Updated {formatDateTime(account.updatedAt)}</span>

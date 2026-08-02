@@ -43,4 +43,33 @@ describe("API client response envelope", () => {
 
     await expect(createApiClient("token", vi.fn()).listAccounts()).resolves.toEqual({ accounts: [] });
   });
+
+  it("repairs scheduler alarms only through an explicit POST request", async () => {
+    const fetcher = vi.fn(async () =>
+      jsonResponse({
+        data: {
+          ensuredJobs: [
+            "apk-delivery",
+            "maintenance-monitor",
+            "maintenance-pre-action",
+            "retention"
+          ]
+        }
+      })
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await expect(createApiClient("token", vi.fn()).ensureSchedulerAlarms()).resolves.toEqual({
+      ensuredJobs: [
+        "apk-delivery",
+        "maintenance-monitor",
+        "maintenance-pre-action",
+        "retention"
+      ]
+    });
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/scheduler/ensure",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
 });

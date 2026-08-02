@@ -1,5 +1,6 @@
 import type {
   AccountInput,
+  CreateVpsInput,
   GcpAccount,
   GcpOperationResult,
   HostRun,
@@ -8,8 +9,9 @@ import type {
   ReleasesResponse,
   RunLog,
   RunsResponse,
+  SchedulerEnsureResponse,
+  UpdateVpsInput,
   VerifyResult,
-  VpsFormInput,
   VpsInventoryResponse,
   VpsResource
 } from "@/types";
@@ -130,12 +132,12 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
         method: "POST"
       }),
     listVps: () => request<VpsInventoryResponse>("/api/vps"),
-    createVps: (input: VpsFormInput & { password: string }) =>
+    createVps: (input: CreateVpsInput) =>
       request<{ vps: VpsResource }>("/api/vps", {
         method: "POST",
         body: JSON.stringify(input)
       }),
-    updateVps: (id: number, input: Partial<VpsFormInput>) =>
+    updateVps: (id: number, input: UpdateVpsInput) =>
       request<{ vps: VpsResource }>(`/api/vps/${id}`, {
         method: "PATCH",
         body: JSON.stringify(input)
@@ -154,7 +156,9 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
       request<RunsResponse>(
         `/api/host-runs?state=${state}&limit=${limit}&offset=${offset}`
       ),
-    getRunLog: (runId: number) => request<RunLog>(`/api/host-runs/${runId}/log`)
+    getRunLog: (runId: number) => request<RunLog>(`/api/host-runs/${runId}/log`),
+    ensureSchedulerAlarms: () =>
+      request<SchedulerEnsureResponse>("/api/scheduler/ensure", { method: "POST" })
   };
 }
 

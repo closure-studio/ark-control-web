@@ -8,9 +8,9 @@ import { DashboardPage } from "@/pages/DashboardPage";
 
 const accounts = [{ id: 7, name: "Production account", enabled: true }];
 const vps = [
-  { id: 1, name: "Primary", watcherEnabled: true },
-  { id: 2, name: "Secondary", watcherEnabled: true },
-  { id: 3, name: "Excluded", watcherEnabled: false }
+  { id: 1, name: "Primary", role: "redroid", watcherEnabled: true },
+  { id: 2, name: "Secondary", role: "redroid", watcherEnabled: true },
+  { id: 3, name: "Excluded", role: "arkhost", watcherEnabled: false }
 ];
 const releases = [
     {
@@ -42,6 +42,16 @@ function apiResponse(input: RequestInfo | URL) {
   const path = String(input);
   let data: unknown;
   if (path.startsWith("/api/accounts")) data = { accounts };
+  else if (path.startsWith("/api/scheduler/ensure")) {
+    data = {
+      ensuredJobs: [
+        "apk-delivery",
+        "maintenance-monitor",
+        "maintenance-pre-action",
+        "retention"
+      ]
+    };
+  }
   else if (path.startsWith("/api/vps")) data = { vps };
   else if (path.startsWith("/api/releases")) {
     data = { releases, pagination: { limit: 5, offset: 0, count: 1 } };
@@ -75,13 +85,57 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Control plane overview" })).toBeInTheDocument();
     expect(screen.getByText("Verification in progress")).toBeInTheDocument();
-    expect(screen.getByLabelText("67% of managed VPS targeted by Watcher")).toBeInTheDocument();
+    expect(screen.getByLabelText("67% of managed VPS enabled for automation")).toBeInTheDocument();
+    expect(screen.getByText("2 ReDroid · 1 ArkHost")).toBeInTheDocument();
     expect(screen.queryByText("Last successful check")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recent releases" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recent operations" })).toBeInTheDocument();
     expect(screen.queryByText("Pending 0")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain("/api/dashboard");
+  });
+
+  it("repairs scheduler alarms only when the administrator requests it", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => apiResponse(input));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDashboard();
+    await screen.findByRole("heading", { name: "Control plane overview" });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+
+    fireEvent.click(screen.getByRole("button", { name: "Repair alarms" }));
+
+    expect(
+      await screen.findByText(
+        "Scheduler alarms ensured for APK delivery, maintenance monitor, maintenance pre-action, retention."
+      )
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/scheduler/ensure",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("keeps dashboard data visible when scheduler repair fails", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).startsWith("/api/scheduler/ensure")
+        ? new Response(
+            JSON.stringify({
+              error: { code: "scheduler_unavailable", message: "Scheduler unavailable" }
+            }),
+            { status: 503, headers: { "content-type": "application/json" } }
+          )
+        : apiResponse(input)
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderDashboard();
+    await screen.findByRole("heading", { name: "Control plane overview" });
+    fireEvent.click(screen.getByRole("button", { name: "Repair alarms" }));
+
+    expect(await screen.findByText("Scheduler unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recent releases" })).toBeInTheDocument();
   });
 
   it("recovers when a failed initial request is retried", async () => {
