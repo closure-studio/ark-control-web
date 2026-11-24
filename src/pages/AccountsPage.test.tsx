@@ -95,51 +95,16 @@ describe("AccountsPage", () => {
     expect(within(dialog).getByRole("button", { name: "Copy" })).toBeInTheDocument();
   });
 
-  it("filters accounts by status, zone, and search query and resets cleanly", async () => {
-    const pausedAccount = {
+  it("hides duplicate project ID subtitles and keeps technical credentials inside collapsible details", async () => {
+    const projectNamedAccount = {
       ...account,
-      id: 8,
-      name: "Staging EU account",
-      projectId: "ark-staging-eu",
-      serviceAccountEmail: "ark-control@ark-staging-eu.iam.gserviceaccount.com",
-      defaultZone: "europe-west1-b",
-      enabled: false
+      id: 9,
+      name: "project-4bd64c97-f241-4a63-ac8",
+      projectId: "project-4bd64c97-f241-4a63-ac8"
     };
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => Response.json({ data: { accounts: [account, pausedAccount] } }))
-    );
-    const api = createApiClient("test-token", vi.fn());
-
-    render(<AccountsPage api={api} />);
-
-    expect(await screen.findByRole("heading", { name: "Production account" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Staging EU account" })).toBeInTheDocument();
-
-    const statusGroup = screen.getByRole("group", { name: "Filter by account status" });
-    fireEvent.click(within(statusGroup).getByRole("button", { name: /Disabled/i }));
-    expect(screen.queryByRole("heading", { name: "Production account" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Staging EU account" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
-    expect(screen.getByRole("heading", { name: "Production account" })).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole("combobox", { name: "Filter by default zone" }), {
-      target: { value: "europe-west1-b" }
-    });
-    expect(screen.queryByRole("heading", { name: "Production account" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Staging EU account" })).toBeInTheDocument();
-
-    fireEvent.change(screen.getByRole("textbox", { name: "Search accounts" }), {
-      target: { value: "no-match-project" }
-    });
-    expect(screen.getByText("No matching GCP accounts")).toBeInTheDocument();
-  });
-
-  it("copies credential values and displays parsed WIF pool/provider chips", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => Response.json({ data: { accounts: [account] } }))
+      vi.fn(async () => Response.json({ data: { accounts: [projectNamedAccount] } }))
     );
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -149,16 +114,21 @@ describe("AccountsPage", () => {
     const api = createApiClient("test-token", vi.fn());
 
     render(<AccountsPage api={api} />);
-    await screen.findByRole("heading", { name: "Production account" });
+    await screen.findByRole("heading", { name: projectNamedAccount.name });
 
-    expect(screen.getByText("pool:ark-control")).toBeInTheDocument();
-    expect(screen.getByText("provider:cloudflare")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Search accounts" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Federation readiness")).not.toBeInTheDocument();
+    expect(screen.getAllByText(projectNamedAccount.projectId)).toHaveLength(2);
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy project ID for Production account" }));
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(account.projectId));
+    const summary = screen.getByText("Connection details");
+    const details = summary.closest("details");
+    expect(details).not.toHaveAttribute("open");
+    fireEvent.click(summary);
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy service account for Production account" }));
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith(account.serviceAccountEmail));
+    fireEvent.click(
+      screen.getByRole("button", { name: `Copy service account for ${projectNamedAccount.name}` })
+    );
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(projectNamedAccount.serviceAccountEmail));
   });
 
   it("renders onboarding empty state and supports quick-pick zones in manual form", async () => {
