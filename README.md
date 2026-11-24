@@ -15,8 +15,9 @@ routes under `/api/*`; the Web Worker forwards those requests to
 `workers.dev` domain and on any Custom Domain attached to this Worker without
 CORS or an additional API route.
 
-The Cloud Shell setup copied from the Accounts page prompts for the existing
-`ADMIN_TOKEN` and uses it only for the account registration request.
+The Cloud Shell setup copied from the Accounts page embeds the active session's
+`ADMIN_TOKEN` for the account registration request and falls back to an
+interactive prompt when no token is present.
 
 VPS inventory records have a fixed role chosen at creation: `redroid` hosts
 participate in APK delivery, while `arkhost` hosts participate in maintenance

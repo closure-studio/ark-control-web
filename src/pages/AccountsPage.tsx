@@ -9,7 +9,7 @@ import {
   ServerCog,
   Trash2
 } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { ApiClient } from "@/api/client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -20,7 +20,7 @@ import { Notice } from "@/components/ui/Notice";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { CLOUD_SHELL_SCRIPT } from "@/constants/cloudShellScript";
+import { buildCloudShellScript } from "@/constants/cloudShellScript";
 import type { AccountInput, GcpAccount } from "@/types";
 import { formatDateTime, messageForError } from "@/utils";
 
@@ -93,11 +93,21 @@ function AccountForm({
   );
 }
 
-function CloudShellModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function CloudShellModal({
+  adminToken,
+  open,
+  onClose
+}: {
+  adminToken?: string;
+  open: boolean;
+  onClose: () => void;
+}) {
   const [copied, setCopied] = useState(false);
+  const script = useMemo(() => buildCloudShellScript(adminToken), [adminToken]);
+
   async function copy() {
     try {
-      await navigator.clipboard.writeText(CLOUD_SHELL_SCRIPT);
+      await navigator.clipboard.writeText(script);
       setCopied(true);
       window.setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
     } catch {
@@ -110,13 +120,13 @@ function CloudShellModal({ open, onClose }: { open: boolean; onClose: () => void
         <div className="flex justify-end">
           <button className="btn btn-sm" onClick={() => void copy()} type="button">{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? "Copied" : "Copy"}</button>
         </div>
-        <pre className="control-code control-scrollbar max-h-[65vh] overflow-auto rounded-lg bg-neutral p-4 text-xs text-neutral-content"><code>{CLOUD_SHELL_SCRIPT}</code></pre>
+        <pre className="control-code control-scrollbar max-h-[65vh] overflow-auto rounded-lg bg-neutral p-4 text-xs text-neutral-content"><code>{script}</code></pre>
       </div>
     </FormModal>
   );
 }
 
-export function AccountsPage({ api }: { api: ApiClient }) {
+export function AccountsPage({ adminToken, api }: { adminToken?: string; api: ApiClient }) {
   const [accounts, setAccounts] = useState<GcpAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -270,7 +280,7 @@ export function AccountsPage({ api }: { api: ApiClient }) {
       <FormModal onClose={() => setFormTarget(null)} open={formTarget !== null} title={formTarget === NEW_ACCOUNT_TARGET ? "Add GCP account" : "Edit GCP account"}>
         {formTarget !== null ? <AccountForm account={formTarget === NEW_ACCOUNT_TARGET ? null : formTarget} busy={formBusy} key={formTarget === NEW_ACCOUNT_TARGET ? NEW_ACCOUNT_TARGET : formTarget.id} onCancel={() => setFormTarget(null)} onSubmit={(input) => void save(input)} /> : null}
       </FormModal>
-      <CloudShellModal onClose={() => setShowScript(false)} open={showScript} />
+      <CloudShellModal adminToken={adminToken} onClose={() => setShowScript(false)} open={showScript} />
       <ConfirmDialog
         busy={deleteBusy}
         confirmation={deleteTarget?.name ?? ""}
