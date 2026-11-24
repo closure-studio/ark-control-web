@@ -124,6 +124,23 @@ async function mockApi(page: Page, seedToken = true) {
     }
     else if (url.pathname === "/api/vps/2/verify") body = { result: { connected: true, stdout: "ok", stderr: "", exitCode: 0, signal: null, success: true, timedOut: false } };
     else if (url.pathname === "/api/accounts") body = { accounts };
+    else if (url.pathname === "/api/accounts/7/vps") {
+      body = {
+        vps: {
+          ...vps[0],
+          id: 99,
+          name: "ark-vps-provisioned"
+        },
+        operation: {
+          accountId: 7,
+          projectId: accounts[0].projectId,
+          zone: accounts[0].defaultZone,
+          instanceName: "ark-vps-provisioned",
+          action: "create",
+          status: "succeeded"
+        }
+      };
+    }
     else if (url.pathname === "/api/releases") body = { releases, pagination: { limit: 25, offset: 0, count: releases.length } };
     else if (url.pathname === "/api/operations") body = { operations: [{ id: 1, batchId: "batch-1", accountId: 7, accountName: accounts[0].name, projectId: accounts[0].projectId, zone: "us-central1-c", instanceName: vps[0].name, action: "start", status: "succeeded", message: null, googleOperationName: "operation-1", createdAt: "2026-07-14T11:50:00.000Z" }], pagination: { limit: 10, offset: 0, count: 1, total: 1 } };
     else if (url.pathname === "/api/releases/41/host-runs") body = { runs };
@@ -168,7 +185,7 @@ for (const viewport of [
 test.describe("core interactions", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test("navigation, filtering, and run logs work without console errors", async ({ page }) => {
+  test("navigation, filtering, and run logs work without console errors", async ({ page }, testInfo) => {
     const browserErrors: string[] = [];
     page.on("console", (message) => {
       if (message.type() === "error") browserErrors.push(message.text());
@@ -221,6 +238,27 @@ test.describe("core interactions", () => {
     await expect(cloudShellDialog.getByText("ARK_CONTROL_ADMIN_TOKEN='visual-test-token'")).toBeVisible();
     await expect(cloudShellDialog.getByText('read -rsp "Ark Control admin token: "')).toHaveCount(0);
     await cloudShellDialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Create VPS in Production control account" }).click();
+    const provisionDialog = page.getByRole("dialog");
+    await expect(provisionDialog).toBeVisible();
+    await expect(provisionDialog.getByLabel("CPU cores (vCPU)")).toHaveValue("6");
+    await expect(provisionDialog.getByLabel("Memory (GB)")).toHaveValue("16");
+    await expect(provisionDialog.getByLabel("Boot disk size (GB)")).toHaveValue("100");
+    await expect(provisionDialog.getByText("n4a-custom-6-16384")).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("desktop-create-vps-dialog.png") });
+    const provisionRequest = page.waitForRequest((request) =>
+      request.url().endsWith("/api/accounts/7/vps")
+    );
+    await provisionDialog.getByRole("button", { name: "Create VPS" }).click();
+    expect(JSON.parse((await provisionRequest).postData() ?? "{}")).toEqual({
+      cpuCount: 6,
+      memoryGb: 16,
+      provisioningModel: "SPOT",
+      diskSizeGb: 100
+    });
+    await expect(page.getByText("ark-vps-provisioned was created as a ReDroid host.")).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     await page.getByRole("link", { name: "Releases", exact: true }).click();
