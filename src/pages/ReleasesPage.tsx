@@ -149,7 +149,7 @@ function WorkbenchToolbar({
             type="button"
           >
             <Columns2 aria-hidden="true" size={14} />
-            <span className="hidden sm:inline">Inspector</span>
+            <span className="sr-only sm:not-sr-only">Inspector</span>
           </button>
           <button
             aria-pressed={viewMode === VIEW_MODE_MATRIX}
@@ -163,7 +163,7 @@ function WorkbenchToolbar({
             type="button"
           >
             <Table2 aria-hidden="true" size={14} />
-            <span className="hidden sm:inline">Matrix</span>
+            <span className="sr-only sm:not-sr-only">Matrix</span>
           </button>
         </div>
       </div>

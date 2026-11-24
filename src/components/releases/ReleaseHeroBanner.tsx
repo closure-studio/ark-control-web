@@ -17,6 +17,7 @@ import {
   EMPTY_COUNT,
   HOST_RUN_PRESENTATION,
   parseApkMetadata,
+  PERCENT_SCALE,
   RELEASE_HEALTH_ACTIVE,
   RELEASE_HEALTH_ATTENTION,
   RELEASE_HEALTH_EMPTY,
@@ -68,6 +69,16 @@ export function ReleaseHeroBanner({
   const healthMeta = RELEASE_HEALTH_META[summary.health];
   const HealthIcon = HEALTH_BADGE_ICONS[summary.health];
   const parsed = parseApkMetadata(release.apkFilename);
+  const hasRuns = summary.total > EMPTY_COUNT;
+  const radialSemantics = hasRuns
+    ? {
+      role: "progressbar",
+      "aria-label": `${summary.passRate}% rollout pass rate`,
+      "aria-valuemin": EMPTY_COUNT,
+      "aria-valuemax": PERCENT_SCALE,
+      "aria-valuenow": summary.passRate
+    }
+    : { role: "img", "aria-label": healthMeta.label };
 
   const radialStyle: RadialStyle = {
     "--value": summary.passRate,
@@ -86,7 +97,7 @@ export function ReleaseHeroBanner({
       filter: RUN_FILTER_SUCCEEDED,
       label: "Verified",
       value: summary.succeeded,
-      detail: `${summary.passRate}% pass rate`,
+      detail: hasRuns ? `${summary.passRate}% pass rate` : healthMeta.label,
       tone: HOST_RUN_PRESENTATION[RUN_FILTER_SUCCEEDED].tone
     },
     {
@@ -110,15 +121,14 @@ export function ReleaseHeroBanner({
       <div className="grid gap-5 p-5 sm:p-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] xl:items-center">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
           <div
-            aria-label={`${summary.passRate}% rollout pass rate`}
+            {...radialSemantics}
             className={cx(
               "radial-progress shrink-0 bg-base-200/70 text-sm font-black tabular-nums",
               healthMeta.radialClassName
             )}
-            role="progressbar"
             style={radialStyle}
           >
-            {summary.total > EMPTY_COUNT ? `${summary.passRate}%` : "—"}
+            {hasRuns ? `${summary.passRate}%` : "—"}
           </div>
 
           <div className="min-w-0 flex-1">
@@ -213,7 +223,7 @@ export function ReleaseHeroBanner({
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-xs">
           <span className="font-bold text-base-content/65">Rollout verification</span>
           <span className="font-semibold tabular-nums text-base-content/80">
-            {summary.total > EMPTY_COUNT
+            {hasRuns
               ? `${summary.passRate}% succeeded (${summary.succeeded} of ${summary.total} hosts)`
               : "No host deployments recorded"}
           </span>
