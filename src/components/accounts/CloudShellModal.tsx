@@ -40,8 +40,8 @@ export function CloudShellModal({
   const copied = copiedKey === COPY_KEY_SCRIPT;
 
   return (
-    <FormModal onClose={onClose} open={open} title="Cloud Shell setup" width="max-w-4xl">
-      <div className="grid gap-5 p-5">
+    <FormModal onClose={onClose} open={open} title="Cloud Shell setup" width="max-w-3xl">
+      <div className="grid min-w-0 gap-5 p-5">
         <ol className="grid gap-4 border-b border-base-300 pb-4 sm:grid-cols-3">
           {SETUP_STEPS.map((item) => (
             <li className="grid gap-1" key={item.step}>
@@ -63,14 +63,14 @@ export function CloudShellModal({
             : "Cloud Shell will ask for your admin token before registering the project."}
         </p>
 
-        <div className="rounded-md border border-base-content/20 bg-neutral text-neutral-content">
+        <div className="min-w-0 overflow-hidden rounded-md border border-base-content/20 bg-neutral text-neutral-content">
           <div className="flex items-center justify-between gap-3 border-b border-base-content/20 px-4 py-2.5">
-            <span className="text-xs font-semibold text-neutral-content/75">
+            <span className="truncate text-xs font-semibold text-neutral-content/75">
               cloud-shell-setup.sh
             </span>
             <button
               className={cx(
-                "btn btn-xs gap-1.5",
+                "btn btn-xs shrink-0 gap-1.5",
                 copied
                   ? "btn-success"
                   : "bg-base-100 text-base-content"
@@ -82,7 +82,7 @@ export function CloudShellModal({
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
-          <pre className="control-code control-scrollbar max-h-[55vh] overflow-auto p-4 text-xs leading-relaxed text-neutral-content">
+          <pre className="control-code control-scrollbar max-h-72 w-full max-w-full overflow-auto p-4 text-xs leading-relaxed text-neutral-content">
             <code>{script}</code>
           </pre>
         </div>

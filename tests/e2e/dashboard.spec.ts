@@ -237,6 +237,15 @@ test.describe("core interactions", () => {
     await expect(cloudShellDialog).toBeVisible();
     await expect(cloudShellDialog.getByText("ARK_CONTROL_ADMIN_TOKEN='visual-test-token'")).toBeVisible();
     await expect(cloudShellDialog.getByText('read -rsp "Ark Control admin token: "')).toHaveCount(0);
+    const cloudShellBox = cloudShellDialog.locator(".modal-box");
+    const cloudShellMetrics = await cloudShellBox.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      width: element.getBoundingClientRect().width
+    }));
+    expect(cloudShellMetrics.scrollWidth).toBeLessThanOrEqual(cloudShellMetrics.clientWidth + 1);
+    expect(cloudShellMetrics.width).toBeLessThanOrEqual(770);
+    await page.screenshot({ path: testInfo.outputPath("desktop-cloud-shell-dialog.png") });
     await cloudShellDialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
