@@ -1,6 +1,6 @@
-import { LoaderCircle } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { FormModal } from "@/components/ui/FormModal";
+import { ModalFormActions } from "@/components/ui/ModalFormActions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
   VPS_ROLE_DETAILS,
@@ -132,7 +132,7 @@ function VpsForm({
       <label className="flex min-h-12 cursor-pointer items-center justify-between gap-4 rounded-field border border-base-300 bg-base-200/50 px-3.5 py-2.5">
         <span>
           <strong className="block text-sm">Automation enabled</strong>
-          <span className="text-xs text-base-content/60">
+          <span className="text-xs text-muted">
             {VPS_ROLE_DETAILS[form.role].automation}
           </span>
         </span>
@@ -143,15 +143,7 @@ function VpsForm({
           type="checkbox"
         />
       </label>
-      <div className="flex justify-end gap-2 border-t border-base-300 pt-4">
-        <button className="btn btn-sm" disabled={busy} onClick={onCancel} type="button">
-          Cancel
-        </button>
-        <button className="btn btn-primary btn-sm" disabled={busy} type="submit">
-          {busy ? <LoaderCircle aria-hidden="true" className="animate-spin" size={16} /> : null}
-          Save
-        </button>
-      </div>
+      <ModalFormActions busy={busy} onCancel={onCancel}>Save</ModalFormActions>
     </form>
   );
 }
@@ -172,10 +164,8 @@ export function VpsFormModal({
   vps: VpsResource | null;
 }) {
   return (
-    <FormModal onClose={onClose} open={open} title={vps === null ? "Add VPS" : "Edit VPS"}>
-      {open ? (
-        <VpsForm busy={busy} key={formKey} onCancel={onClose} onSubmit={onSubmit} vps={vps} />
-      ) : null}
+    <FormModal busy={busy} kind="form" onClose={onClose} open={open} title={vps === null ? "Add VPS" : "Edit VPS"}>
+      <VpsForm busy={busy} key={formKey} onCancel={onClose} onSubmit={onSubmit} vps={vps} />
     </FormModal>
   );
 }

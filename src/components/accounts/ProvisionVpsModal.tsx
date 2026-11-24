@@ -1,4 +1,4 @@
-import { LoaderCircle, MapPin, ServerCog } from "lucide-react";
+import { MapPin, ServerCog } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import {
   clampMemoryForCpu,
@@ -18,8 +18,9 @@ import {
 } from "@/components/accounts/accountHelpers";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { FormModal } from "@/components/ui/FormModal";
+import { ModalFormActions } from "@/components/ui/ModalFormActions";
+import { PresetButton } from "@/components/ui/PresetButton";
 import type { GcpAccount, ProvisionVpsInput, VpsProvisioningModel } from "@/types";
-import { cx } from "@/utils";
 
 const PROVISION_MODEL_OPTIONS: ReadonlyArray<{
   value: VpsProvisioningModel;
@@ -121,26 +122,17 @@ function ProvisionVpsFormContent({
             />
           </label>
           <div className="flex flex-wrap gap-1.5">
-            {VPS_CPU_PRESETS.map((cores) => {
-              const selected = form.cpuCount === cores;
-              return (
-                <button
-                  aria-label={`${cores} vCPU`}
-                  className={cx(
-                    "btn btn-xs h-7 min-h-7 px-2 text-[0.7rem] tabular-nums",
-                    selected
-                      ? "btn-info btn-soft border border-info/50"
-                      : "btn-ghost border border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40"
-                  )}
-                  disabled={busy}
-                  key={cores}
-                  onClick={() => setCpuCount(cores)}
-                  type="button"
-                >
-                  {cores}C
-                </button>
-              );
-            })}
+            {VPS_CPU_PRESETS.map((cores) => (
+              <PresetButton
+                aria-label={`${cores} vCPU`}
+                disabled={busy}
+                key={cores}
+                onClick={() => setCpuCount(cores)}
+                pressed={form.cpuCount === cores}
+              >
+                {cores}C
+              </PresetButton>
+            ))}
           </div>
         </div>
 
@@ -161,27 +153,18 @@ function ProvisionVpsFormContent({
             />
           </label>
           <div className="flex flex-wrap gap-1.5">
-            {validMemoryPresets.map((gb) => {
-              const selected = form.memoryGb === gb;
-              return (
-                <button
-                  className={cx(
-                    "btn btn-xs h-7 min-h-7 px-2 text-[0.7rem] tabular-nums",
-                    selected
-                      ? "btn-info btn-soft border border-info/50"
-                      : "btn-ghost border border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40"
-                  )}
-                  disabled={busy}
-                  key={gb}
-                  onClick={() => setForm((current) => ({ ...current, memoryGb: gb }))}
-                  type="button"
-                >
-                  {gb} GB
-                </button>
-              );
-            })}
+            {validMemoryPresets.map((gb) => (
+              <PresetButton
+                disabled={busy}
+                key={gb}
+                onClick={() => setForm((current) => ({ ...current, memoryGb: gb }))}
+                pressed={form.memoryGb === gb}
+              >
+                {gb} GB
+              </PresetButton>
+            ))}
           </div>
-          <span className="text-xs tabular-nums text-base-content/55">
+          <span className="text-xs tabular-nums text-muted">
             Range for {form.cpuCount} vCPU: {memoryBounds.min}–{memoryBounds.max} GB
           </span>
         </div>
@@ -205,27 +188,18 @@ function ProvisionVpsFormContent({
         </label>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap gap-1.5">
-            {VPS_DISK_PRESETS.map((sizeGb) => {
-              const selected = form.diskSizeGb === sizeGb;
-              return (
-                <button
-                  className={cx(
-                    "btn btn-xs h-7 min-h-7 px-2 text-[0.7rem] tabular-nums",
-                    selected
-                      ? "btn-info btn-soft border border-info/50"
-                      : "btn-ghost border border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40"
-                  )}
-                  disabled={busy}
-                  key={sizeGb}
-                  onClick={() => setForm((current) => ({ ...current, diskSizeGb: sizeGb }))}
-                  type="button"
-                >
-                  {sizeGb} GB
-                </button>
-              );
-            })}
+            {VPS_DISK_PRESETS.map((sizeGb) => (
+              <PresetButton
+                disabled={busy}
+                key={sizeGb}
+                onClick={() => setForm((current) => ({ ...current, diskSizeGb: sizeGb }))}
+                pressed={form.diskSizeGb === sizeGb}
+              >
+                {sizeGb} GB
+              </PresetButton>
+            ))}
           </div>
-          <span className="text-xs text-base-content/55">
+          <span className="text-xs text-muted">
             Hyperdisk Balanced · Ubuntu 22.04 ARM64
           </span>
         </div>
@@ -240,47 +214,31 @@ function ProvisionVpsFormContent({
           VM provisioning model
         </span>
         <div className="grid gap-3 sm:grid-cols-2">
-          {PROVISION_MODEL_OPTIONS.map((option) => {
-            const selected = form.provisioningModel === option.value;
-            return (
-              <button
-                aria-pressed={selected}
-                className={cx(
-                  "flex flex-col items-start gap-1 rounded-box border p-3.5 text-left transition-colors",
-                  selected
-                    ? "border-info bg-info/8 shadow-[inset_0_0_0_1px_var(--color-info)]"
-                    : "border-base-300 bg-base-100 hover:border-base-content/35"
-                )}
-                disabled={busy}
-                key={option.value}
-                onClick={() =>
-                  setForm((current) => ({ ...current, provisioningModel: option.value }))
-                }
-                type="button"
-              >
-                <span className="text-sm font-bold text-base-content">{option.title}</span>
-                <span className="text-xs leading-5 text-base-content/60">
-                  {option.description}
-                </span>
-              </button>
-            );
-          })}
+          {PROVISION_MODEL_OPTIONS.map((option) => (
+            <PresetButton
+              className="h-auto w-full min-w-0 flex-col items-start gap-1 p-3.5 text-left whitespace-normal"
+              disabled={busy}
+              key={option.value}
+              onClick={() =>
+                setForm((current) => ({ ...current, provisioningModel: option.value }))
+              }
+              pressed={form.provisioningModel === option.value}
+            >
+              <span className="text-sm font-bold">{option.title}</span>
+              <span className="text-xs leading-5 text-muted">{option.description}</span>
+            </PresetButton>
+          ))}
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 border-t border-base-300 pt-4">
-        <button className="btn btn-sm" disabled={busy} onClick={onCancel} type="button">
-          Cancel
-        </button>
-        <button className="btn btn-primary btn-sm gap-2" disabled={busy || !valid} type="submit">
-          {busy ? (
-            <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
-          ) : (
-            <ServerCog aria-hidden="true" size={16} />
-          )}
-          Create VPS
-        </button>
-      </div>
+      <ModalFormActions
+        busy={busy}
+        disabled={!valid}
+        idleIcon={<ServerCog aria-hidden="true" size={16} />}
+        onCancel={onCancel}
+      >
+        Create VPS
+      </ModalFormActions>
     </form>
   );
 }
@@ -299,7 +257,7 @@ export function ProvisionVpsModal({
   onSubmit: (input: ProvisionVpsInput) => void;
 }) {
   return (
-    <FormModal onClose={busy ? () => undefined : onClose} open={account !== null} title="Create VPS">
+    <FormModal busy={busy} kind="form" onClose={onClose} open={account !== null} title="Create VPS">
       {account ? (
         <ProvisionVpsFormContent
           account={account}

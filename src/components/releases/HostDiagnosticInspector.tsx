@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Terminal
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useCopyFeedback } from "@/components/accounts/useCopyFeedback";
 import { HostRunBadge } from "@/components/releases/HostRunBadge";
 import {
@@ -21,7 +22,9 @@ import {
 } from "@/components/releases/releaseHelpers";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
+import { NumberedLogLine } from "@/components/ui/NumberedLogLine";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { TerminalFrame } from "@/components/ui/TerminalFrame";
 import type { HostRun, HostRunStatus, RunLog } from "@/types";
 import { cx, formatDateTime } from "@/utils";
 
@@ -59,16 +62,60 @@ export function HostDiagnosticInspector({
   const ipCopied = copiedKey === HOST_IP_COPY_KEY;
   const logCopied = copiedKey === LOG_COPY_KEY;
   const isActive = ACTIVE_RUN_STATUSES.has(run.status);
+  const lastChecked = formatDateTime(run.lastCheckedAt);
   const elapsed = formatElapsedDuration(run.startedAt, run.lastCheckedAt ?? run.updatedAt);
-  const rawLog = log?.lastLogTail ?? null;
-  const allLines = splitLogLines(rawLog);
-  const previewLines = allLines.slice(-PREVIEW_MAX_LINES);
-  const previewStartIndex = Math.max(EMPTY_COUNT, allLines.length - previewLines.length);
+  const [scheduleLabel, scheduleDate] = isActive
+    ? ["Next check", run.nextCheckAt]
+    : ["Deadline", run.deadlineAt];
+  const timestamps = [
+    ["Started", formatDateTime(run.startedAt)],
+    elapsed === null ? ["Last checked", lastChecked] : ["Elapsed", elapsed],
+    ["Last checked", lastChecked],
+    [scheduleLabel, formatDateTime(scheduleDate)]
+  ];
+
+  const rawLog = log?.lastLogTail ?? "";
+  const refreshLog = () => onRefreshLog(run);
+  let preview: ReactNode;
+  if (modalOpenForRun) {
+    preview = (
+      <div className="grid min-h-28 place-items-center text-center font-sans text-neutral-content/70">
+        Viewing this log in the full-screen terminal dialog.
+      </div>
+    );
+  } else if (logError) {
+    preview = <div className="font-sans"><ErrorAlert message={logError} onRetry={refreshLog} /></div>;
+  } else if (logLoading && !log) {
+    preview = (
+      <div className="font-sans [&>div]:border-neutral-content/15 [&>div]:text-neutral-content/70">
+        <LoadingBlock label="Fetching log tail" />
+      </div>
+    );
+  } else if (rawLog) {
+    const allLines = splitLogLines(rawLog);
+    const startIndex = Math.max(EMPTY_COUNT, allLines.length - PREVIEW_MAX_LINES);
+    preview = (
+      <pre className="whitespace-pre-wrap wrap-anywhere">
+        <code>
+          {allLines.slice(startIndex).map((text, index) => (
+            <NumberedLogLine
+              isError={isErrorLogLine(text)}
+              key={startIndex + index}
+              number={startIndex + index + 1}
+              text={text}
+            />
+          ))}
+        </code>
+      </pre>
+    );
+  } else {
+    preview = <p className="p-1 font-sans text-neutral-content/70">No stored log output yet.</p>;
+  }
 
   return (
     <aside
       aria-label={`Diagnostic inspector for ${run.hostName}`}
-      className="grid gap-4 p-5 xl:sticky xl:top-20 xl:self-start"
+      className="grid grid-cols-1 gap-4 p-5 xl:sticky xl:top-20 xl:self-start"
     >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-base-300 pb-4">
         <div className="min-w-0">
@@ -85,11 +132,10 @@ export function HostDiagnosticInspector({
               type="button"
             >
               {ipCopied ? (
-                <Check aria-hidden="true" className="text-success" size={11} />
+                <><Check aria-hidden="true" className="text-success" size={11} />Copied</>
               ) : (
-                <Copy aria-hidden="true" size={11} />
+                <><Copy aria-hidden="true" size={11} />Copy IP</>
               )}
-              {ipCopied ? "Copied" : "Copy IP"}
             </button>
           </div>
         </div>
@@ -108,40 +154,13 @@ export function HostDiagnosticInspector({
         <RunLifecycle status={run.status} />
       </div>
 
-      <dl className="grid grid-cols-2 gap-2.5 text-xs">
-        <div className="rounded-field border border-base-300 bg-base-200/30 px-3 py-2">
-          <dt className="text-[0.68rem] font-bold uppercase text-base-content/50">Started</dt>
-          <dd className="mt-0.5 font-semibold text-base-content/85">
-            {formatDateTime(run.startedAt)}
-          </dd>
-        </div>
-        <div className="rounded-field border border-base-300 bg-base-200/30 px-3 py-2">
-          <dt className="text-[0.68rem] font-bold uppercase text-base-content/50">
-            {elapsed ? "Elapsed" : "Last checked"}
-          </dt>
-          <dd className="mt-0.5 font-semibold tabular-nums text-base-content/85">
-            {elapsed ?? formatDateTime(run.lastCheckedAt)}
-          </dd>
-        </div>
-        <div className="rounded-field border border-base-300 bg-base-200/30 px-3 py-2">
-          <dt className="text-[0.68rem] font-bold uppercase text-base-content/50">Last checked</dt>
-          <dd className="mt-0.5 font-semibold text-base-content/85">
-            {formatDateTime(run.lastCheckedAt)}
-          </dd>
-        </div>
-        <div className="rounded-field border border-base-300 bg-base-200/30 px-3 py-2">
-          <dt className="text-[0.68rem] font-bold uppercase text-base-content/50">
-            {isActive ? "Next check" : "Deadline"}
-          </dt>
-          <dd
-            className={cx(
-              "mt-0.5 font-semibold",
-              isActive && run.nextCheckAt ? "text-info" : "text-base-content/85"
-            )}
-          >
-            {isActive ? formatDateTime(run.nextCheckAt) : formatDateTime(run.deadlineAt)}
-          </dd>
-        </div>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
+        {timestamps.map(([label, value], index) => (
+          <div key={index}>
+            <dt className="text-[0.68rem] font-bold uppercase text-muted">{label}</dt>
+            <dd className="mt-0.5 font-semibold tabular-nums text-base-content">{value}</dd>
+          </div>
+        ))}
       </dl>
 
       {run.errorMessage ? (
@@ -165,84 +184,38 @@ export function HostDiagnosticInspector({
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-box border border-neutral-content/15 bg-neutral text-neutral-content">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-content/15 bg-black/18 px-3 py-2 text-[0.7rem]">
-          <span className="inline-flex items-center gap-1.5 font-semibold text-neutral-content/80">
-            <Terminal aria-hidden="true" size={13} />
-            Live log tail
-          </span>
+      <TerminalFrame
+        actions={
           <div className="flex items-center gap-1.5">
             <button
               className="btn btn-ghost btn-xs h-6 min-h-6 gap-1 px-2 text-neutral-content/80 hover:bg-neutral-content/10"
               disabled={!rawLog}
-              onClick={() => {
-                if (rawLog) {
-                  void copyText(LOG_COPY_KEY, rawLog);
-                }
-              }}
+              onClick={() => void copyText(LOG_COPY_KEY, rawLog)}
               type="button"
             >
-              {logCopied ? <Check aria-hidden="true" size={12} /> : <Copy aria-hidden="true" size={12} />}
-              {logCopied ? "Copied" : "Copy"}
+              {logCopied ? (
+                <><Check aria-hidden="true" size={12} />Copied</>
+              ) : (
+                <><Copy aria-hidden="true" size={12} />Copy</>
+              )}
             </button>
             <button
               aria-label={`Refresh log for ${run.hostName}`}
-              className="btn btn-ghost btn-xs btn-square h-6 min-h-6 text-neutral-content/80 hover:bg-neutral-content/10"
+              className="btn group btn-ghost btn-xs btn-square h-6 min-h-6 text-neutral-content/80 hover:bg-neutral-content/10"
               disabled={logLoading}
-              onClick={() => onRefreshLog(run)}
+              onClick={refreshLog}
               type="button"
             >
-              <RefreshCw
-                aria-hidden="true"
-                className={logLoading ? "animate-spin" : undefined}
-                size={12}
-              />
+              <RefreshCw aria-hidden="true" className="group-disabled:animate-spin" size={12} />
             </button>
           </div>
-        </div>
-
-        {modalOpenForRun ? (
-          <div className="flex min-h-36 items-center justify-center px-4 text-center text-xs text-neutral-content/65">
-            Viewing this log in the full-screen terminal dialog.
-          </div>
-        ) : logError ? (
-          <div className="bg-base-100 p-3 text-base-content">
-            <ErrorAlert message={logError} onRetry={() => onRefreshLog(run)} />
-          </div>
-        ) : logLoading && !log ? (
-          <div className="bg-base-100 text-base-content">
-            <LoadingBlock label="Fetching log tail" />
-          </div>
-        ) : (
-          <div className="scrollbar-thin max-h-64 min-h-36 overflow-auto p-3 font-mono text-xs leading-5">
-            {previewLines.length > EMPTY_COUNT ? (
-              <pre className="m-0 whitespace-pre-wrap break-words">
-                <code>
-                  {previewLines.map((line, index) => (
-                    <span
-                      className={cx(
-                        "flex gap-2.5 rounded-xs px-1",
-                        isErrorLogLine(line) && "bg-error/20"
-                      )}
-                      key={`${previewStartIndex + index}-${line}`}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="w-6 shrink-0 select-none text-right tabular-nums text-neutral-content/40"
-                      >
-                        {previewStartIndex + index + 1}
-                      </span>
-                      <span className="min-w-0 flex-1">{line === "" ? " " : line}</span>
-                    </span>
-                  ))}
-                </code>
-              </pre>
-            ) : (
-              <p className="p-1 text-neutral-content/60">No stored log output yet.</p>
-            )}
-          </div>
-        )}
-      </div>
+        }
+        icon={Terminal}
+        title="Live log tail"
+        viewportClassName="max-h-64 min-h-36"
+      >
+        {preview}
+      </TerminalFrame>
 
       {log ? (
         <p className="flex items-center gap-1.5 text-[0.7rem] text-base-content/55">
