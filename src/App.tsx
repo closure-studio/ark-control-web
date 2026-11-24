@@ -10,7 +10,7 @@ export function App() {
 
   return (
     <AppShell>
-      <AppRouter api={api} />
+      <AppRouter adminToken={token} api={api} />
     </AppShell>
   );
 }

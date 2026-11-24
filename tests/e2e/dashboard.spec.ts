@@ -213,6 +213,16 @@ test.describe("core interactions", () => {
     await page.getByRole("button", { name: "Verify ark-vps-stopped-worker" }).click();
     await expect(page.getByText("ark-vps-stopped-worker: SSH verification succeeded.")).toBeVisible();
 
+    await page.getByRole("link", { name: "Accounts", exact: true }).click();
+    await expect(page).toHaveURL(/\/accounts$/);
+    await page.getByRole("button", { name: "Cloud setup" }).click();
+    const cloudShellDialog = page.getByRole("dialog");
+    await expect(cloudShellDialog).toBeVisible();
+    await expect(cloudShellDialog.getByText("ARK_CONTROL_ADMIN_TOKEN='visual-test-token'")).toBeVisible();
+    await expect(cloudShellDialog.getByText('read -rsp "Ark Control admin token: "')).toHaveCount(0);
+    await cloudShellDialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
     await page.getByRole("link", { name: "Releases", exact: true }).click();
     await expect(page).toHaveURL(/\/releases$/);
     await page.getByRole("button", { name: "Log", exact: true }).first().click();
