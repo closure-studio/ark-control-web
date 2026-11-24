@@ -41,7 +41,7 @@ export function StatusRail({
   return (
     <div className="min-w-0">
       <StatusBar className={cx(compact ? "h-2" : "h-2.5", "bg-base-300")} counts={counts} total={total} />
-      <div className={`flex flex-wrap gap-x-3 gap-y-1 text-[0.68rem] text-base-content/55 ${compact ? "mt-1.5" : "mt-2"}`}>
+      <div className={`flex flex-wrap gap-x-3 gap-y-1 text-[0.68rem] text-muted ${compact ? "mt-1.5" : "mt-2"}`}>
         {HOST_RUN_STATUSES.map((status) => {
           const count = counts[status] ?? EMPTY_COUNT;
           if (!showEmptyStatuses && !(count > EMPTY_COUNT)) return null;
