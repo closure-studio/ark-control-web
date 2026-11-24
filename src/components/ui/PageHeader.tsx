@@ -15,22 +15,15 @@ export function PageHeader({
     <header className="mb-6 flex flex-col gap-4 border-b border-base-300 pb-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
-          <p className="m-0 text-[0.6875rem] font-black uppercase leading-tight text-info">
+          <p className="mb-1.5 font-mono text-xs uppercase text-muted">
             {eyebrow}
           </p>
         ) : null}
-        <h1
-          className={
-            eyebrow
-              ? "mt-1.5 text-[2rem] font-black leading-tight text-base-content sm:text-[2.25rem]"
-              : "text-[2rem] font-black leading-tight text-base-content sm:text-[2.25rem]"
-          }
-          id="page-title"
-        >
+        <h1 className="text-3xl leading-tight font-bold tracking-tight sm:text-4xl" id="page-title">
           {title}
         </h1>
         {description ? (
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-base-content/60">{description}</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{description}</p>
         ) : null}
       </div>
       {actions ? (

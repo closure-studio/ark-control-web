@@ -125,6 +125,21 @@
   }
 }
 
+@layer utilities {
+  .app-sidebar .menu {
+    /* DaisyUI uses base-content for hover and focus on menu items. */
+    --color-base-content: var(--color-neutral-content);
+    --menu-active-bg: var(--color-primary);
+    --menu-active-fg: var(--color-primary-content);
+  }
+
+  .app-sidebar .menu a:focus-visible,
+  .app-sidebar button:focus-visible {
+    outline: 2px solid var(--color-neutral-content);
+    outline-offset: 2px;
+  }
+}
+
 @utility glass-chrome-dark {
   @apply glass-chrome;
   --glass-chrome-color: var(--color-neutral);
@@ -135,6 +150,10 @@
 
 @utility ark-corner {
   clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+}
+
+@utility ark-brand-mark {
+  @apply ark-corner grid size-10 shrink-0 place-items-center bg-primary text-primary-content;
 }
 
 @utility tactical-grid {
