@@ -7,6 +7,12 @@ export const RELEASE_POLL_INTERVAL_MS = 15_000;
 export const RELEASE_POLL_INTERVAL_SECONDS = 15;
 export const PERCENT_SCALE = 100;
 export const LOG_COPY_KEY = "run-log";
+export const APK_URL_COPY_KEY = "apk-url";
+export const HOST_IP_COPY_KEY = "host-ip";
+
+const MS_PER_SECOND = 1_000;
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
 
 export const RUN_STATUS_PENDING = "pending" as const satisfies HostRunStatus;
 export const RUN_STATUS_RUNNING = "running" as const satisfies HostRunStatus;
@@ -35,6 +41,11 @@ export type RunFilter =
   | typeof RUN_FILTER_ACTIVE
   | typeof RUN_FILTER_SUCCEEDED;
 
+export const VIEW_MODE_SPLIT = "split";
+export const VIEW_MODE_MATRIX = "matrix";
+
+export type WorkbenchViewMode = typeof VIEW_MODE_SPLIT | typeof VIEW_MODE_MATRIX;
+
 export const RELEASE_HEALTH_EMPTY = "empty";
 export const RELEASE_HEALTH_ATTENTION = "attention";
 export const RELEASE_HEALTH_ACTIVE = "active";
@@ -62,28 +73,28 @@ export const RELEASE_HEALTH_META: Record<
   {
     label: string;
     badgeClassName: string;
-    iconClassName: string;
+    radialClassName: string;
   }
 > = {
   [RELEASE_HEALTH_HEALTHY]: {
     label: "All verified",
     badgeClassName: "border-success/30 bg-success/10 text-success",
-    iconClassName: "text-success"
+    radialClassName: "text-success"
   },
   [RELEASE_HEALTH_ACTIVE]: {
     label: "Deploying",
     badgeClassName: "border-info/30 bg-info/10 text-info",
-    iconClassName: "text-info"
+    radialClassName: "text-info"
   },
   [RELEASE_HEALTH_ATTENTION]: {
     label: "Needs attention",
     badgeClassName: "border-error/30 bg-error/10 text-error",
-    iconClassName: "text-error"
+    radialClassName: "text-error"
   },
   [RELEASE_HEALTH_EMPTY]: {
     label: "No runs",
     badgeClassName: "border-base-300 bg-base-200 text-base-content/60",
-    iconClassName: "text-base-content/45"
+    radialClassName: "text-base-content/35"
   }
 };
 
@@ -198,6 +209,87 @@ export function formatReleaseRange(offset: number, count: number): string {
   const start = offset + 1;
   const end = offset + count;
   return `${start}–${end}`;
+}
+
+const APK_ARCH_PATTERN = /\b(arm64-v8a|armeabi-v7a|arm64|x86_64|universal)\b/i;
+const APK_VERSION_PATTERN = /\b(\d{4}[.-]\d{2}[.-]\d{2}|v?\d+\.\d+(?:\.\d+)?)\b/i;
+
+export interface ParsedApkMetadata {
+  arch: string | null;
+  version: string | null;
+}
+
+export function parseApkMetadata(filename: string): ParsedApkMetadata {
+  const archMatch = APK_ARCH_PATTERN.exec(filename);
+  const versionMatch = APK_VERSION_PATTERN.exec(filename);
+  return {
+    arch: archMatch ? archMatch[1].toLowerCase() : null,
+    version: versionMatch ? versionMatch[1] : null
+  };
+}
+
+export function formatElapsedDuration(
+  startIso: string | null | undefined,
+  endIso: string | null | undefined
+): string | null {
+  if (!startIso || !endIso) {
+    return null;
+  }
+  const startMs = Date.parse(startIso);
+  const endMs = Date.parse(endIso);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
+    return null;
+  }
+  const totalSeconds = Math.floor((endMs - startMs) / MS_PER_SECOND);
+  if (totalSeconds < SECONDS_PER_MINUTE) {
+    return `${totalSeconds}s`;
+  }
+  const totalMinutes = Math.floor(totalSeconds / SECONDS_PER_MINUTE);
+  const seconds = totalSeconds % SECONDS_PER_MINUTE;
+  if (totalMinutes < MINUTES_PER_HOUR) {
+    return seconds > EMPTY_COUNT ? `${totalMinutes}m ${seconds}s` : `${totalMinutes}m`;
+  }
+  const hours = Math.floor(totalMinutes / MINUTES_PER_HOUR);
+  const minutes = totalMinutes % MINUTES_PER_HOUR;
+  return minutes > EMPTY_COUNT ? `${hours}h ${minutes}m` : `${hours}h`;
+}
+
+export interface LifecycleStep {
+  key: string;
+  label: string;
+  tone: string;
+}
+
+const RUN_LIFECYCLE_STEPS: Record<HostRunStatus, readonly LifecycleStep[]> = {
+  [RUN_STATUS_PENDING]: [
+    { key: "dispatch", label: "Queued", tone: "step-warning" },
+    { key: "verify", label: "Verify", tone: "" },
+    { key: "outcome", label: "Complete", tone: "" }
+  ],
+  [RUN_STATUS_RUNNING]: [
+    { key: "dispatch", label: "Dispatched", tone: "step-info" },
+    { key: "verify", label: "Verifying", tone: "step-info" },
+    { key: "outcome", label: "Complete", tone: "" }
+  ],
+  [RUN_STATUS_SUCCEEDED]: [
+    { key: "dispatch", label: "Dispatched", tone: "step-success" },
+    { key: "verify", label: "Verified", tone: "step-success" },
+    { key: "outcome", label: "Succeeded", tone: "step-success" }
+  ],
+  [RUN_STATUS_FAILED]: [
+    { key: "dispatch", label: "Dispatched", tone: "step-error" },
+    { key: "verify", label: "Checked", tone: "step-error" },
+    { key: "outcome", label: "Failed", tone: "step-error" }
+  ],
+  [RUN_STATUS_TIMED_OUT]: [
+    { key: "dispatch", label: "Dispatched", tone: "step-error" },
+    { key: "verify", label: "Expired", tone: "step-error" },
+    { key: "outcome", label: "Timed out", tone: "step-error" }
+  ]
+};
+
+export function lifecycleStepsForRun(status: HostRunStatus): readonly LifecycleStep[] {
+  return RUN_LIFECYCLE_STEPS[status];
 }
 
 const LOG_ERROR_LINE_PATTERN = /\b(error|failed|fatal|exception|traceback|exited with)\b/i;

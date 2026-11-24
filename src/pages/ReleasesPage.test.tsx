@@ -95,6 +95,15 @@ function createReleasesFetchMock() {
     if (url === "/api/releases/40/host-runs") {
       return Response.json({ data: { runs: [] } });
     }
+    if (url === "/api/host-runs/81/log") {
+      return Response.json({
+        data: {
+          lastLogTail: "[11:21:00] downloading apk\n[11:25:00] helper running",
+          lastCheckedAt: "2026-07-14T11:25:00.000Z",
+          updatedAt: "2026-07-14T11:25:00.000Z"
+        }
+      });
+    }
     if (url === "/api/host-runs/82/log") {
       return Response.json({
         data: {
@@ -104,12 +113,21 @@ function createReleasesFetchMock() {
         }
       });
     }
+    if (url === "/api/host-runs/83/log") {
+      return Response.json({
+        data: {
+          lastLogTail: "[11:24:00] verified ok",
+          lastCheckedAt: "2026-07-14T11:24:00.000Z",
+          updatedAt: "2026-07-14T11:24:00.000Z"
+        }
+      });
+    }
     return Response.json({ data: {} });
   });
 }
 
 describe("ReleasesPage", () => {
-  it("renders releases, switches selection, and filters host runs by status and search query", async () => {
+  it("renders mission control timeline, docked inspector, KPI filtering, matrix view, and search", async () => {
     vi.stubGlobal("fetch", createReleasesFetchMock());
     const api = createApiClient("test-token", vi.fn());
 
@@ -118,20 +136,24 @@ describe("ReleasesPage", () => {
     expect(
       await screen.findByRole("heading", { name: releases[0].apkFilename })
     ).toBeInTheDocument();
-    expect(await screen.findByText("ark-vps-production-primary")).toBeInTheDocument();
+    expect(await screen.findByText("[11:25:00] helper running")).toBeInTheDocument();
     expect(screen.getByText("67% succeeded (4 of 6 hosts)")).toBeInTheDocument();
     expect(screen.getByText("Live · 15s")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Attention/i }));
-    expect(screen.getByText("external-verification-host")).toBeInTheDocument();
+    expect(await screen.findByText("[11:25:00] ERROR verification failed")).toBeInTheDocument();
     expect(screen.queryByText("ark-vps-production-primary")).not.toBeInTheDocument();
     expect(screen.queryByText("ark-vps-healthy-node")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /All/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Matrix" }));
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Inspector" }));
+
     fireEvent.change(screen.getByLabelText("Search host runs"), {
       target: { value: "34.120.10.25" }
     });
-    expect(screen.getByText("ark-vps-healthy-node")).toBeInTheDocument();
+    expect(screen.getAllByText("ark-vps-healthy-node").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("external-verification-host")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Search host runs"), {
@@ -139,13 +161,13 @@ describe("ReleasesPage", () => {
     });
     expect(screen.getByText("No matching host runs")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(screen.getByText("ark-vps-production-primary")).toBeInTheDocument();
+    expect(screen.getAllByText("ark-vps-production-primary").length).toBeGreaterThanOrEqual(1);
 
-    fireEvent.click(screen.getByRole("button", { name: /ark-production-release-2026\.07\.13/i }));
+    fireEvent.click(screen.getByRole("button", { name: /2026\.07\.13/i }));
     expect(await screen.findByText("No host runs")).toBeInTheDocument();
   });
 
-  it("opens run log modal, toggles line wrap, and copies log output", async () => {
+  it("opens full terminal log modal with line search, errors-only filter, wrap toggle, and copy", async () => {
     vi.stubGlobal("fetch", createReleasesFetchMock());
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -156,6 +178,9 @@ describe("ReleasesPage", () => {
 
     render(<ReleasesPage api={api} />);
     await screen.findByText("external-verification-host");
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy URL" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(releases[0].finalUrl));
 
     const logButtons = screen.getAllByRole("button", { name: "Log" });
     fireEvent.click(logButtons[1]);
@@ -168,6 +193,17 @@ describe("ReleasesPage", () => {
       await within(dialog).findByText("[11:25:00] ERROR verification failed")
     ).toBeInTheDocument();
     expect(within(dialog).getByText("2 lines")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Errors only (1)" }));
+    expect(within(dialog).queryByText("[11:24:01] installing apk")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("1 of 2 lines")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Errors only (1)" }));
+
+    fireEvent.change(within(dialog).getByLabelText("Filter log output"), {
+      target: { value: "installing" }
+    });
+    expect(within(dialog).getByText("[11:24:01] installing apk")).toBeInTheDocument();
+    expect(within(dialog).queryByText("[11:25:00] ERROR verification failed")).not.toBeInTheDocument();
 
     const wrapButton = within(dialog).getByRole("button", { name: "Wrap" });
     expect(wrapButton).toHaveAttribute("aria-pressed", "true");
@@ -246,12 +282,12 @@ describe("ReleasesPage", () => {
     expect(await screen.findByText("Host runs unavailable")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-    expect(await screen.findByText("ark-vps-production-primary")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Log" }));
+    expect(await screen.findByText("Log storage timeout")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("No stored log output yet.")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Log" }));
     const dialog = await screen.findByRole("dialog");
-    expect(await within(dialog).findByText("Log storage timeout")).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Retry" }));
     expect(await within(dialog).findByText("No stored log output.")).toBeInTheDocument();
   });
 });
