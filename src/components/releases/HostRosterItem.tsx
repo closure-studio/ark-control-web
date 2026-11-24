@@ -27,12 +27,12 @@ export function HostRosterItem({
   return (
     <div
       className={cx(
-        "flex flex-col gap-2.5 px-4 py-3.5 transition-colors sm:px-5",
+        "flex flex-col gap-2.5 border-s-3 px-4 py-3.5 transition-colors sm:px-5",
         selected
-          ? "bg-info/8 shadow-[inset_3px_0_0_var(--color-info)]"
+          ? "border-s-info bg-info/8"
           : isAttention
-            ? "bg-error/[0.03] hover:bg-error/[0.06]"
-            : "hover:bg-base-content/[0.03]"
+            ? "border-s-transparent bg-error/3 hover:bg-error/6"
+            : "border-s-transparent hover:bg-base-content/3"
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -49,16 +49,16 @@ export function HostRosterItem({
           />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="break-words text-sm font-extrabold leading-snug text-base-content">
+              <span className="text-sm font-extrabold leading-snug wrap-anywhere text-base-content">
                 {run.hostName}
               </span>
               {elapsed ? (
-                <span className="rounded bg-base-200 px-1.5 py-0.5 text-[0.68rem] font-semibold tabular-nums text-base-content/65">
+                <span className="rounded bg-base-200 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-muted">
                   {elapsed}
                 </span>
               ) : null}
             </div>
-            <p className="mt-0.5 break-all font-mono text-xs text-base-content/55">
+            <p className="mt-0.5 break-all font-mono text-xs text-muted">
               {run.hostIp}
             </p>
           </div>
@@ -80,15 +80,15 @@ export function HostRosterItem({
       {run.errorMessage ? (
         <p className="flex items-start gap-1.5 pl-6.5 text-xs leading-5 text-error">
           <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={13} />
-          <span className="line-clamp-2 break-words font-medium">{run.errorMessage}</span>
+          <span className="line-clamp-2 font-medium wrap-anywhere">{run.errorMessage}</span>
         </p>
       ) : run.lastAiReason ? (
-        <p className="line-clamp-2 pl-6.5 text-xs leading-5 text-base-content/70">
+        <p className="line-clamp-2 pl-6.5 text-xs leading-5 wrap-anywhere text-muted">
           {run.lastAiReason}
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 pl-6.5 text-[0.7rem] text-base-content/50">
+      <div className="flex flex-wrap items-center justify-between gap-2 pl-6.5 text-xs text-muted">
         <span>Checked {formatDateTime(run.lastCheckedAt)}</span>
         {run.lastAiStatus ? (
           <span className="inline-flex items-center gap-1.5">

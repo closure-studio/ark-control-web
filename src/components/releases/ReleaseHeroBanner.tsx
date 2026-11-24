@@ -118,8 +118,8 @@ export function ReleaseHeroBanner({
 
   return (
     <Panel aria-labelledby="release-runs-title">
-      <div className="grid gap-5 p-5 sm:p-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] xl:items-center">
-        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
+      <div className="grid gap-3 p-5 sm:p-6 xl:grid-cols-12 xl:grid-rows-2">
+        <div className="flex min-w-0 flex-col gap-4 rounded-box border border-base-300 p-4 sm:flex-row sm:items-start sm:p-5 xl:col-span-7 xl:row-span-2">
           <div
             {...radialSemantics}
             className={cx(
@@ -137,23 +137,23 @@ export function ReleaseHeroBanner({
                 <HealthIcon aria-hidden="true" size={12} />
                 {healthMeta.label}
               </span>
-              <span className="font-mono text-xs font-bold tabular-nums text-base-content/55">
+              <span className="font-mono text-xs font-bold tabular-nums text-muted">
                 Release #{release.id}
               </span>
               {parsed.arch ? (
-                <span className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-[0.68rem] font-semibold text-base-content/75">
+                <span className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-xs font-semibold text-muted">
                   {parsed.arch}
                 </span>
               ) : null}
             </div>
 
             <h2
-              className="mt-2 break-words font-mono text-xl font-black leading-snug text-base-content sm:text-2xl"
+              className="mt-2 font-mono text-xl font-black leading-snug wrap-anywhere text-base-content sm:text-2xl"
               id="release-runs-title"
             >
               {release.apkFilename}
             </h2>
-            <p className="mt-1 text-xs text-base-content/55">
+            <p className="mt-1 text-xs text-muted">
               Published {formatDateTime(release.createdAt)}
             </p>
 
@@ -196,7 +196,7 @@ export function ReleaseHeroBanner({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-3 xl:col-span-5 xl:row-span-2 xl:grid-cols-2 xl:grid-rows-subgrid">
           {kpiCards.map((item) => {
             const active = activeFilter === item.filter;
             return (
@@ -205,8 +205,8 @@ export function ReleaseHeroBanner({
                 className={cx(
                   "flex min-w-0 flex-col gap-1.5 rounded-box border p-3.5 text-left transition-colors",
                   active
-                    ? "border-info bg-info/8"
-                    : "border-base-300 bg-base-200/35 hover:border-base-content/30 hover:bg-base-200/60"
+                    ? "border-primary bg-base-200"
+                    : "border-base-300 bg-base-100 hover:border-base-content/30 hover:bg-base-200"
                 )}
                 key={item.filter}
                 onClick={() => onSelectFilter(item.filter)}
@@ -221,7 +221,7 @@ export function ReleaseHeroBanner({
 
       <div className="border-t border-base-300 bg-base-200/40 px-5 py-3.5 sm:px-6">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-xs">
-          <span className="font-bold text-base-content/65">Rollout verification</span>
+          <span className="font-bold text-muted">Rollout verification</span>
           <span className="font-semibold tabular-nums text-base-content/80">
             {hasRuns
               ? `${summary.passRate}% succeeded (${summary.succeeded} of ${summary.total} hosts)`

@@ -44,7 +44,7 @@ const FILTER_OPTIONS: ReadonlyArray<{
   label: string;
   countTone: string;
 }> = [
-  { key: RUN_FILTER_ALL, label: "All", countTone: "text-base-content/55" },
+  { key: RUN_FILTER_ALL, label: "All", countTone: "text-muted" },
   { key: RUN_FILTER_ATTENTION, label: "Attention", countTone: "text-error" },
   { key: RUN_FILTER_ACTIVE, label: "Active", countTone: "text-info" },
   { key: RUN_FILTER_SUCCEEDED, label: succeededPresentation.label, countTone: succeededPresentation.textClassName }
@@ -88,7 +88,7 @@ function WorkbenchToolbar({
                 "inline-flex items-center justify-center gap-1.5 rounded-field border px-2.5 py-1 text-xs font-bold transition-colors",
                 active
                   ? "border-base-content/20 bg-base-100 text-base-content shadow-2xs"
-                  : "border-transparent text-base-content/65 hover:bg-base-content/6 hover:text-base-content"
+                  : "border-transparent text-muted hover:bg-base-content/6 hover:text-base-content"
               )}
               key={option.key}
               onClick={() => onFilterChange(option.key)}
@@ -97,8 +97,8 @@ function WorkbenchToolbar({
               <span>{option.label}</span>
               <span
                 className={cx(
-                  "text-[0.7rem] tabular-nums",
-                  count > EMPTY_COUNT ? option.countTone : "text-base-content/40"
+                  "text-xs tabular-nums",
+                  count > EMPTY_COUNT ? option.countTone : "text-muted"
                 )}
               >
                 {count}
@@ -110,7 +110,7 @@ function WorkbenchToolbar({
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="input input-sm flex min-w-0 flex-1 items-center gap-2 sm:w-64 sm:flex-none">
-          <Search aria-hidden="true" className="shrink-0 text-base-content/45" size={14} />
+          <Search aria-hidden="true" className="shrink-0 text-muted" size={14} />
           <input
             aria-label="Search host runs"
             className="min-w-0 grow"
@@ -121,7 +121,7 @@ function WorkbenchToolbar({
           {query !== "" ? (
             <button
               aria-label="Clear search"
-              className="text-base-content/45 transition-colors hover:text-base-content"
+              className="text-muted transition-colors hover:text-base-content"
               onClick={() => onQueryChange("")}
               type="button"
             >
@@ -229,7 +229,7 @@ function FleetWorkbenchBody({
       <div className="grid min-h-44 place-items-center px-6 py-8 text-center">
         <div>
           <p className="font-extrabold text-base-content">No matching host runs</p>
-          <p className="mt-1 text-xs text-base-content/60">
+          <p className="mt-1 text-xs text-muted">
             Adjust the status filter or search query to inspect other hosts.
           </p>
           <button className="btn btn-sm mt-4" onClick={onClearFilters} type="button">

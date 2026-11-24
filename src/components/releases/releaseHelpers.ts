@@ -185,7 +185,7 @@ export const RELEASE_HEALTH_META: Record<
   [RELEASE_HEALTH_EMPTY]: {
     label: "No runs",
     badgeClassName: BADGE_TONE_CLASSES.ghost,
-    radialClassName: "text-base-content/35"
+    radialClassName: "text-muted"
   }
 };
 

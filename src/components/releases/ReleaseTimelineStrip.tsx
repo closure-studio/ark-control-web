@@ -40,11 +40,13 @@ export function ReleaseTimelineStrip({
   releases: ReleaseSummary[];
   selectedId: number | null;
 }) {
+  const isScrollable = releases.length > TIMELINE_SCROLL_THRESHOLD;
+
   return (
     <section aria-labelledby="release-list-title" className="min-w-0">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <h2 className="text-sm font-extrabold uppercase text-base-content/70" id="release-list-title">
+          <h2 className="text-sm font-extrabold uppercase text-muted" id="release-list-title">
             Release timeline
           </h2>
           {releases.length > EMPTY_COUNT ? (
@@ -92,7 +94,7 @@ export function ReleaseTimelineStrip({
         <div
           className={cx(
             "grid grid-cols-1 gap-3 p-0.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4",
-            releases.length > TIMELINE_SCROLL_THRESHOLD && "scrollbar-thin max-h-72 overflow-y-auto"
+            isScrollable && "scrollbar-thin max-h-72 overflow-y-auto"
           )}
         >
           {releases.map((release) => {
@@ -111,6 +113,7 @@ export function ReleaseTimelineStrip({
                 aria-pressed={selected}
                 className={cx(
                   "surface flex flex-col justify-between gap-3 p-3.5 text-left transition-colors",
+                  isScrollable && "focus-visible:-outline-offset-2",
                   selected ? "border-primary" : "hover:border-base-content/30"
                 )}
                 key={release.id}
@@ -121,7 +124,7 @@ export function ReleaseTimelineStrip({
                   <div
                     aria-hidden="true"
                     className={cx(
-                      "radial-progress shrink-0 bg-base-200/70 text-[0.68rem] font-black tabular-nums",
+                      "radial-progress shrink-0 bg-base-200/70 text-xs font-black tabular-nums",
                       healthMeta.radialClassName
                     )}
                     style={radialStyle}
@@ -134,17 +137,17 @@ export function ReleaseTimelineStrip({
                       <span className="truncate font-mono text-xs font-extrabold text-base-content">
                         {parsed.version ?? `Release #${release.id}`}
                       </span>
-                      <span className="shrink-0 font-mono text-[0.6875rem] font-semibold tabular-nums text-base-content/45">
+                      <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-muted">
                         #{release.id}
                       </span>
                     </div>
-                    <p className="mt-0.5 truncate font-mono text-[0.72rem] font-medium text-base-content/70">
+                    <p className="mt-0.5 font-mono text-xs font-medium wrap-anywhere text-muted">
                       {release.apkFilename}
                     </p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-base-content/55">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                       <span>{formatDateTime(release.createdAt)}</span>
                       {parsed.arch ? (
-                        <span className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-[0.65rem] text-base-content/70">
+                        <span className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-muted">
                           {parsed.arch}
                         </span>
                       ) : null}
@@ -153,8 +156,8 @@ export function ReleaseTimelineStrip({
                 </div>
 
                 <div className="grid gap-1.5">
-                  <div className="flex items-center justify-between gap-2 text-[0.7rem] font-semibold tabular-nums">
-                    <span className="text-base-content/70">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold tabular-nums">
+                    <span className="text-muted">
                       {summary.total > EMPTY_COUNT
                         ? `${summary.succeeded}/${summary.total} verified`
                         : "No host runs"}

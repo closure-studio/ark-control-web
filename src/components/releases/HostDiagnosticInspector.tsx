@@ -120,14 +120,14 @@ export function HostDiagnosticInspector({
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-base-300 pb-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="break-words text-base font-black text-base-content">{run.hostName}</h3>
+            <h3 className="text-base font-black wrap-anywhere text-base-content">{run.hostName}</h3>
             <HostRunBadge status={run.status} />
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <code className="break-all text-xs text-base-content/65">{run.hostIp}</code>
+            <code className="break-all font-mono text-xs text-muted">{run.hostIp}</code>
             <button
               aria-label={`Copy IP for ${run.hostName}`}
-              className="btn btn-ghost btn-xs h-6 min-h-6 gap-1 border border-base-300 px-2 text-[0.68rem]"
+              className="btn btn-ghost btn-xs h-6 min-h-6 gap-1 border border-base-300 px-2 text-xs"
               onClick={() => void copyText(HOST_IP_COPY_KEY, run.hostIp)}
               type="button"
             >
@@ -150,14 +150,12 @@ export function HostDiagnosticInspector({
         </button>
       </div>
 
-      <div className="rounded-box border border-base-300 bg-base-200/35 px-3 py-3">
-        <RunLifecycle status={run.status} />
-      </div>
+      <RunLifecycle status={run.status} />
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
         {timestamps.map(([label, value], index) => (
           <div key={index}>
-            <dt className="text-[0.68rem] font-bold uppercase text-muted">{label}</dt>
+            <dt className="font-bold uppercase text-muted">{label}</dt>
             <dd className="mt-0.5 font-semibold tabular-nums text-base-content">{value}</dd>
           </div>
         ))}
@@ -166,22 +164,18 @@ export function HostDiagnosticInspector({
       {run.errorMessage ? (
         <div className="alert alert-error alert-soft flex items-start gap-2 rounded-field border border-error/25 px-3 py-2.5 text-xs leading-5">
           <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={14} />
-          <p className="min-w-0 break-words font-medium">{run.errorMessage}</p>
+          <p className="min-w-0 font-medium wrap-anywhere">{run.errorMessage}</p>
         </div>
       ) : null}
 
       {run.lastAiStatus !== null || run.lastAiReason !== null ? (
-        <div className="rounded-field border border-base-300 bg-base-200/35 px-3.5 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-bold text-base-content/70">AI verification verdict</span>
-            <StatusBadge value={run.lastAiStatus} />
-          </div>
+        <dl className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <dt className="font-bold text-muted">AI verification verdict</dt>
+          <dd><StatusBadge value={run.lastAiStatus} /></dd>
           {run.lastAiReason ? (
-            <p className="mt-2 break-words text-xs leading-5 text-base-content/80">
-              {run.lastAiReason}
-            </p>
+            <dd className="w-full leading-5 wrap-anywhere">{run.lastAiReason}</dd>
           ) : null}
-        </div>
+        </dl>
       ) : null}
 
       <TerminalFrame
@@ -218,7 +212,7 @@ export function HostDiagnosticInspector({
       </TerminalFrame>
 
       {log ? (
-        <p className="flex items-center gap-1.5 text-[0.7rem] text-base-content/55">
+        <p className="flex items-center gap-1.5 text-xs text-muted">
           <Clock3 aria-hidden="true" size={12} />
           <span>Log updated {formatDateTime(log.updatedAt)}</span>
         </p>

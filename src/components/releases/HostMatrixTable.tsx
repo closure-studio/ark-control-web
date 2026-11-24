@@ -47,9 +47,9 @@ export function HostMatrixTable({
                       onClick={() => onInspect(run)}
                       type="button"
                     >
-                      <strong className="block break-words text-sm">{run.hostName}</strong>
+                      <strong className="block text-sm wrap-anywhere">{run.hostName}</strong>
                     </button>
-                    <span className="mt-0.5 block break-all font-mono text-xs text-base-content/55">
+                    <span className="mt-0.5 block break-all font-mono text-xs text-muted">
                       {run.hostIp}
                     </span>
                   </td>
@@ -59,12 +59,12 @@ export function HostMatrixTable({
                   <td className="max-w-72 align-top whitespace-normal">
                     <StatusBadge value={run.lastAiStatus} />
                     {run.lastAiReason ? (
-                      <p className="mt-1.5 break-words text-xs leading-5 text-base-content/70">
+                      <p className="mt-1.5 text-xs leading-5 wrap-anywhere text-muted">
                         {run.lastAiReason}
                       </p>
                     ) : null}
                   </td>
-                  <td className="whitespace-nowrap align-top text-xs text-base-content/65">
+                  <td className="whitespace-nowrap align-top text-xs text-muted">
                     <div className="grid gap-1">
                       <span>Checked {formatDateTime(run.lastCheckedAt)}</span>
                       {elapsed ? (
@@ -83,10 +83,10 @@ export function HostMatrixTable({
                     {run.errorMessage ? (
                       <span className="flex items-start gap-1.5 font-medium text-error">
                         <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={13} />
-                        <span className="break-words">{run.errorMessage}</span>
+                        <span className="wrap-anywhere">{run.errorMessage}</span>
                       </span>
                     ) : (
-                      <span className="text-base-content/45">No errors</span>
+                      <span className="text-muted">No errors</span>
                     )}
                   </td>
                   <td className="text-right align-top">
@@ -111,22 +111,22 @@ export function HostMatrixTable({
           <article className="grid gap-2.5 p-4" key={run.id}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="break-words text-sm font-extrabold">{run.hostName}</h3>
-                <p className="mt-0.5 break-all font-mono text-xs text-base-content/55">
+                <h3 className="text-sm font-extrabold wrap-anywhere">{run.hostName}</h3>
+                <p className="mt-0.5 break-all font-mono text-xs text-muted">
                   {run.hostIp}
                 </p>
               </div>
               <HostRunBadge status={run.status} />
             </div>
             {run.lastAiReason ? (
-              <p className="break-words text-xs leading-5 text-base-content/75">
+              <p className="text-xs leading-5 wrap-anywhere text-muted">
                 {run.lastAiReason}
               </p>
             ) : null}
             {run.errorMessage ? (
-              <p className="break-words text-xs font-medium text-error">{run.errorMessage}</p>
+              <p className="text-xs font-medium wrap-anywhere text-error">{run.errorMessage}</p>
             ) : null}
-            <div className="flex items-center justify-between gap-2 border-t border-base-300 pt-2.5 text-xs text-base-content/55">
+            <div className="flex items-center justify-between gap-2 border-t border-base-300 pt-2.5 text-xs text-muted">
               <span>{formatDateTime(run.lastCheckedAt)}</span>
               <button
                 className="btn btn-sm gap-1.5 bg-base-100"
