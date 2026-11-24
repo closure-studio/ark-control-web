@@ -93,6 +93,11 @@
   }
 }
 
+input::placeholder {
+  color: var(--color-muted);
+  opacity: 1;
+}
+
 @utility surface {
   @apply bg-base-100 shadow-xs;
   border: var(--border) solid color-mix(in oklab, var(--color-base-content) 18%, var(--color-base-100));
@@ -101,11 +106,11 @@
 
 @utility console-table {
   & :where(thead, tbody) > tr > :where(th, td) {
-    @apply px-5;
+    @apply px-3 xl:px-5;
   }
 
   & > thead > tr > th {
-    @apply bg-base-200/70 py-3 text-[0.68rem] uppercase text-base-content/60;
+    @apply bg-base-200/70 py-3 text-[0.68rem] uppercase text-muted;
   }
 
   & > tbody > tr > td {

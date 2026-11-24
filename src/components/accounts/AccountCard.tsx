@@ -1,8 +1,7 @@
 import {
   Check,
-  ChevronRight,
+  ChevronDown,
   Clock3,
-  Cloud,
   Copy,
   LoaderCircle,
   MapPin,
@@ -35,11 +34,11 @@ function DetailRow({
   return (
     <div className="grid gap-1">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-base-content/60">{label}</span>
+        <span className="text-xs font-semibold text-muted">{label}</span>
         <button
           aria-label={copyLabel}
           className={cx(
-            "btn btn-xs h-6 min-h-6 gap-1 px-2 text-[0.7rem]",
+            "btn btn-xs gap-1 px-2 text-xs",
             copied ? "btn-success btn-soft" : "btn-ghost border border-base-300 bg-base-100"
           )}
           onClick={onCopy}
@@ -49,7 +48,7 @@ function DetailRow({
           <span>{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
-      <code className="block break-normal text-xs leading-5 text-base-content/85 [overflow-wrap:anywhere]">
+      <code className="block text-xs leading-5 wrap-anywhere">
         {value}
       </code>
     </div>
@@ -74,51 +73,40 @@ export function AccountCard({
   const { copiedKey, copyText } = useCopyFeedback();
   const hasDistinctProjectId =
     account.projectId.trim() !== "" && account.projectId.trim() !== account.name.trim();
+  const stateLabel = account.enabled ? "Enabled" : "Disabled";
 
   return (
-    <article
-      className={cx(
-        "surface flex flex-col justify-between overflow-hidden transition-colors hover:border-base-content/30",
-        !account.enabled && "bg-base-200/35",
-        busy && "border-info/55"
-      )}
-    >
+    <article className={cx("surface flex min-w-0 flex-col overflow-hidden", busy && "border-info")}>
       <div className="flex flex-1 flex-col p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="grid size-9 shrink-0 place-items-center rounded-field border border-base-content/25 bg-base-100 text-info shadow-2xs">
-              <Cloud aria-hidden="true" size={18} />
-            </div>
-
-            <div className="min-w-0">
-              <h2 className="break-words text-lg font-extrabold leading-snug text-base-content">
-                {account.name}
-              </h2>
-              {hasDistinctProjectId ? (
-                <code className="mt-0.5 block truncate text-xs text-base-content/55">
-                  {account.projectId}
-                </code>
-              ) : null}
-            </div>
+        <header className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-lg font-extrabold leading-snug wrap-anywhere">
+              {account.name}
+            </h2>
+            {hasDistinctProjectId ? (
+              <code className="mt-1 block font-mono text-xs wrap-anywhere text-muted">
+                {account.projectId}
+              </code>
+            ) : null}
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
             {busy ? (
               <LoaderCircle aria-hidden="true" className="animate-spin text-info" size={16} />
             ) : null}
-            <StatusBadge value={account.enabled ? "Enabled" : "Disabled"} />
+            <StatusBadge value={stateLabel} />
           </div>
-        </div>
+        </header>
 
-        <div className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-base-content/60">
-          <span className="inline-flex items-center gap-1.5 font-medium text-base-content/80">
-            <MapPin aria-hidden="true" className="shrink-0 text-base-content/45" size={13} />
-            <span>{account.defaultZone}</span>
+        <div className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            <MapPin aria-hidden="true" className="shrink-0" size={13} />
+            <code className="font-mono wrap-anywhere">{account.defaultZone}</code>
           </span>
-          <span aria-hidden="true" className="hidden text-base-content/30 sm:inline">
+          <span aria-hidden="true" className="hidden sm:inline">
             ·
           </span>
-          <span className="inline-flex items-center gap-1.5 text-base-content/55">
+          <span className="inline-flex items-center gap-1.5">
             <Clock3 aria-hidden="true" size={12} />
             <span>Updated {formatDateTime(account.updatedAt)}</span>
           </span>
@@ -146,16 +134,16 @@ export function AccountCard({
       </div>
 
       <details className="group border-t border-base-300">
-        <summary className="flex cursor-pointer list-none items-center gap-1.5 px-5 py-3 text-xs font-semibold text-base-content/65 select-none transition-colors hover:text-base-content sm:px-6 [&::-webkit-details-marker]:hidden">
-          <ChevronRight
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-3 text-xs font-semibold text-muted hover:text-base-content focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-primary sm:px-6 [&::-webkit-details-marker]:hidden">
+          Connection details
+          <ChevronDown
             aria-hidden="true"
-            className="shrink-0 transition-transform duration-150 group-open:rotate-90"
+            className="shrink-0 group-open:rotate-180 motion-safe:transition-transform"
             size={14}
           />
-          <span>Connection details</span>
         </summary>
 
-        <div className="grid gap-3.5 border-t border-base-300/70 bg-base-200/40 px-5 py-4 sm:px-6">
+        <div className="grid gap-3.5 bg-base-200/40 px-5 py-4 sm:px-6">
           <DetailRow
             copied={copiedKey === COPY_KEY_PROJECT}
             copyLabel={`Copy project ID for ${account.name}`}
@@ -180,7 +168,7 @@ export function AccountCard({
         </div>
       </details>
 
-      <footer className="flex items-center justify-between gap-3 border-t border-base-300 bg-base-200/45 px-5 py-3.5 sm:px-6">
+      <footer className="flex items-center justify-between gap-3 border-t border-base-300 bg-base-200/50 px-5 py-3.5 sm:px-6">
         <label className="inline-flex cursor-pointer items-center gap-2.5">
           <input
             checked={account.enabled}
@@ -189,9 +177,7 @@ export function AccountCard({
             onChange={(event) => onToggle(event.target.checked)}
             type="checkbox"
           />
-          <span className="text-xs font-bold text-base-content/80">
-            {account.enabled ? "Enabled" : "Disabled"}
-          </span>
+          <span className="text-xs font-bold text-muted">{stateLabel}</span>
         </label>
 
         <div className="flex items-center gap-2">

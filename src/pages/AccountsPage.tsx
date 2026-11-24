@@ -202,10 +202,7 @@ export function AccountsPage({
         ) : null}
 
         {accounts.length > EMPTY_COUNT ? (
-          <section
-            aria-label="GCP account list"
-            className="grid gap-5 md:grid-cols-2"
-          >
+          <section aria-label="GCP account list" className="grid gap-4 md:grid-cols-2">
             {accounts.map((account) => (
               <AccountCard
                 account={account}

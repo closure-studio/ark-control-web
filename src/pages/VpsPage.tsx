@@ -20,7 +20,7 @@ import type {
   VpsInventoryResponse,
   VpsResource
 } from "@/types";
-import { formatDateTime, messageForError } from "@/utils";
+import { cx, formatDateTime, messageForError } from "@/utils";
 
 type NoticeState = { tone: "success" | "error" | "info"; text: string };
 type Filters = { search: string; automation: string; role: string };
@@ -31,6 +31,7 @@ const FILTER_AUTOMATION_DISABLED = "disabled";
 const FILTER_AUTOMATION_ENABLED = "enabled";
 const NEW_VPS_TARGET = "new";
 const VPS_POLL_INTERVAL_MS = 15_000;
+const FILTER_SELECT_CLASS_NAME = "select select-sm w-full md:w-auto";
 
 const emptyFilters: Filters = { search: "", automation: FILTER_ALL, role: FILTER_ALL };
 
@@ -74,45 +75,40 @@ function ActionButtons({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const actions = [
+    {
+      label: "Verify",
+      tip: "Verify SSH",
+      icon: busy ? LoaderCircle : Terminal,
+      iconClassName: busy ? "animate-spin" : undefined,
+      onClick: onVerify
+    },
+    { label: "Edit", tip: "Edit VPS", icon: Pencil, onClick: onEdit },
+    {
+      label: "Delete",
+      tip: "Delete VPS",
+      icon: Trash2,
+      onClick: onDelete,
+      tone: "btn-error btn-soft",
+      tooltipPlacement: "tooltip-left"
+    }
+  ];
+
   return (
     <div aria-label={`Actions for ${name}`} className="join">
-      <div className="tooltip" data-tip="Verify SSH">
-        <button
-          aria-label={`Verify ${name}`}
-          className="btn btn-square btn-sm join-item"
-          disabled={busy}
-          onClick={onVerify}
-          type="button"
-        >
-          {busy ? (
-            <LoaderCircle aria-hidden="true" className="animate-spin" size={15} />
-          ) : (
-            <Terminal aria-hidden="true" size={15} />
-          )}
-        </button>
-      </div>
-      <div className="tooltip" data-tip="Edit VPS">
-        <button
-          aria-label={`Edit ${name}`}
-          className="btn btn-square btn-sm join-item"
-          disabled={busy}
-          onClick={onEdit}
-          type="button"
-        >
-          <Pencil aria-hidden="true" size={15} />
-        </button>
-      </div>
-      <div className="tooltip tooltip-left" data-tip="Delete VPS">
-        <button
-          aria-label={`Delete ${name}`}
-          className="btn btn-error btn-soft btn-square btn-sm join-item"
-          disabled={busy}
-          onClick={onDelete}
-          type="button"
-        >
-          <Trash2 aria-hidden="true" size={15} />
-        </button>
-      </div>
+      {actions.map(({ label, tip, icon: Icon, iconClassName, onClick, tone, tooltipPlacement }) => (
+        <div className={cx("tooltip", tooltipPlacement)} data-tip={tip} key={label}>
+          <button
+            aria-label={`${label} ${name}`}
+            className={cx("btn btn-square btn-sm join-item", tone)}
+            disabled={busy}
+            onClick={onClick}
+            type="button"
+          >
+            <Icon aria-hidden="true" className={iconClassName} size={15} />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -137,11 +133,12 @@ function VpsFilterToolbar({
   return (
     <div
       aria-label="VPS filters"
-      className="grid gap-2.5 border-b border-base-300 bg-base-200/35 px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-[minmax(14rem,1fr)_10.5rem_12.5rem_auto]"
+      className="grid gap-2.5 border-b border-base-300 bg-base-200/35 px-5 py-3 sm:grid-cols-2 md:flex md:items-center"
     >
-      <label className="input input-sm flex w-full items-center gap-2">
-        <Search aria-hidden="true" className="shrink-0 text-base-content/45" size={14} />
+      <label className="input input-sm w-full md:flex-1">
+        <Search aria-hidden="true" className="shrink-0 text-muted" size={14} />
         <input
+          aria-label="Search VPS"
           className="min-w-0 grow"
           onChange={(event) => onChange({ ...filters, search: event.target.value })}
           placeholder="Search VPS"
@@ -150,7 +147,7 @@ function VpsFilterToolbar({
       </label>
       <select
         aria-label="VPS role"
-        className="select select-sm w-full"
+        className={FILTER_SELECT_CLASS_NAME}
         onChange={(event) => onChange({ ...filters, role: event.target.value })}
         value={filters.role}
       >
@@ -163,7 +160,7 @@ function VpsFilterToolbar({
       </select>
       <select
         aria-label="Automation state"
-        className="select select-sm w-full"
+        className={FILTER_SELECT_CLASS_NAME}
         onChange={(event) => onChange({ ...filters, automation: event.target.value })}
         value={filters.automation}
       >
@@ -171,9 +168,9 @@ function VpsFilterToolbar({
         <option value={FILTER_AUTOMATION_ENABLED}>Automation enabled</option>
         <option value={FILTER_AUTOMATION_DISABLED}>Automation disabled</option>
       </select>
-      <div className="flex items-center justify-between gap-2 lg:justify-end">
+      <div className="flex shrink-0 items-center justify-between gap-2">
         {hasInventory ? (
-          <span className="text-xs font-semibold tabular-nums text-base-content/55">
+          <span className="text-xs font-semibold tabular-nums text-muted">
             {filteredCount}/{totalCount}
           </span>
         ) : null}
@@ -205,10 +202,23 @@ function VpsList({
   onToggleAutomation: (vps: VpsResource, enabled: boolean) => void;
   onVerify: (vps: VpsResource) => void;
 }) {
+  function automationToggle(vps: VpsResource) {
+    return (
+      <input
+        aria-label={`${vps.watcherEnabled ? "Disable" : "Enable"} automation for ${vps.name}`}
+        checked={vps.watcherEnabled}
+        className="toggle toggle-success toggle-sm"
+        disabled={busyIds.has(vps.id)}
+        onChange={(event) => onToggleAutomation(vps, event.target.checked)}
+        type="checkbox"
+      />
+    );
+  }
+
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="table table-sm console-table min-w-[54rem]">
+        <table className="table table-sm console-table">
           <thead>
             <tr>
               <th>VPS</th>
@@ -222,31 +232,20 @@ function VpsList({
           <tbody className="divide-y divide-base-300">
             {items.map((vps) => (
               <tr className="transition-colors hover:bg-info/6" key={vps.id}>
-                <td className="max-w-64 align-middle">
-                  <strong className="break-words">{vps.name}</strong>
+                <td className="max-w-64 font-mono wrap-anywhere">
+                  <strong>{vps.name}</strong>
                 </td>
-                <td className="max-w-64 align-middle">
-                  <span className="break-all font-mono text-xs text-base-content/75">
-                    {vps.username}@{vps.address}:{vps.port}
-                  </span>
+                <td className="max-w-64 font-mono text-xs wrap-anywhere text-muted">
+                  {vps.username}@{vps.address}:{vps.port}
                 </td>
-                <td className="align-middle">
+                <td>
                   <StatusBadge value={VPS_ROLE_DETAILS[vps.role].label} />
                 </td>
-                <td className="align-middle">
-                  <input
-                    aria-label={`${vps.watcherEnabled ? "Disable" : "Enable"} automation for ${vps.name}`}
-                    checked={vps.watcherEnabled}
-                    className="toggle toggle-success toggle-sm"
-                    disabled={busyIds.has(vps.id)}
-                    onChange={(event) => onToggleAutomation(vps, event.target.checked)}
-                    type="checkbox"
-                  />
-                </td>
-                <td className="whitespace-nowrap align-middle text-xs text-base-content/60">
+                <td>{automationToggle(vps)}</td>
+                <td className="text-xs text-muted">
                   {formatDateTime(vps.updatedAt)}
                 </td>
-                <td className="text-right align-middle">
+                <td className="text-right">
                   <ActionButtons
                     busy={busyIds.has(vps.id)}
                     name={vps.name}
@@ -263,26 +262,21 @@ function VpsList({
 
       <div className="divide-y divide-base-300 md:hidden">
         {items.map((vps) => (
-          <article className="px-4 py-4" key={vps.id}>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="break-words font-extrabold">{vps.name}</h2>
-                <StatusBadge value={VPS_ROLE_DETAILS[vps.role].label} />
+          <article className="px-5 py-4" key={vps.id}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-mono text-sm font-extrabold leading-5 wrap-anywhere">
+                  {vps.name}
+                </h2>
+                <p className="mt-1 font-mono text-xs wrap-anywhere text-muted">
+                  {vps.username}@{vps.address}:{vps.port}
+                </p>
               </div>
-              <p className="mt-1 break-all font-mono text-xs text-base-content/60">
-                {vps.username}@{vps.address}:{vps.port}
-              </p>
+              <StatusBadge value={VPS_ROLE_DETAILS[vps.role].label} />
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-base-300 pt-3">
-              <label className="flex cursor-pointer items-center gap-2 text-xs font-bold">
-                <input
-                  aria-label={`${vps.watcherEnabled ? "Disable" : "Enable"} automation for ${vps.name}`}
-                  checked={vps.watcherEnabled}
-                  className="toggle toggle-success toggle-sm"
-                  disabled={busyIds.has(vps.id)}
-                  onChange={(event) => onToggleAutomation(vps, event.target.checked)}
-                  type="checkbox"
-                />
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-muted">
+                {automationToggle(vps)}
                 Automation
               </label>
               <ActionButtons
