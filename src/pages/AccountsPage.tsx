@@ -1,22 +1,15 @@
 import { Code2, Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ApiClient } from "@/api/client";
 import { AccountCard } from "@/components/accounts/AccountCard";
 import { AccountFormModal } from "@/components/accounts/AccountFormModal";
 import { AccountsEmptyState } from "@/components/accounts/AccountsEmptyState";
 import {
-  EMPTY_ACCOUNT_FILTERS,
   EMPTY_COUNT,
-  matchesAccountFilters,
-  NEW_ACCOUNT_TARGET,
-  summarizeAccounts,
-  type AccountFilters
+  NEW_ACCOUNT_TARGET
 } from "@/components/accounts/accountHelpers";
-import { AccountsOverview } from "@/components/accounts/AccountsOverview";
-import { AccountsToolbar } from "@/components/accounts/AccountsToolbar";
 import { CloudShellModal } from "@/components/accounts/CloudShellModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Notice } from "@/components/ui/Notice";
@@ -36,7 +29,6 @@ export function AccountsPage({
   api: ApiClient;
 }) {
   const [accounts, setAccounts] = useState<GcpAccount[]>([]);
-  const [filters, setFilters] = useState<AccountFilters>(EMPTY_ACCOUNT_FILTERS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<NoticeState | null>(null);
@@ -63,12 +55,6 @@ export function AccountsPage({
   useEffect(() => {
     void load();
   }, [load]);
-
-  const metrics = useMemo(() => summarizeAccounts(accounts), [accounts]);
-  const filteredAccounts = useMemo(
-    () => accounts.filter((account) => matchesAccountFilters(account, filters)),
-    [accounts, filters]
-  );
 
   function setBusy(id: number, value: boolean) {
     setBusyIds((current) => {
@@ -213,43 +199,22 @@ export function AccountsPage({
         ) : null}
 
         {accounts.length > EMPTY_COUNT ? (
-          <>
-            <AccountsOverview
-              adminToken={adminToken}
-              metrics={metrics}
-              onOpenCloudSetup={() => setShowScript(true)}
-            />
-
-            <AccountsToolbar
-              filteredCount={filteredAccounts.length}
-              filters={filters}
-              metrics={metrics}
-              onChange={setFilters}
-            />
-
-            {filteredAccounts.length === EMPTY_COUNT ? (
-              <div className="overflow-hidden rounded-xl border border-base-300 bg-base-100">
-                <EmptyState
-                  detail="Adjust your search query, status tab, or zone filter to see matching GCP accounts."
-                  title="No matching GCP accounts"
-                />
-              </div>
-            ) : (
-              <section aria-label="GCP account list" className="grid gap-4">
-                {filteredAccounts.map((account) => (
-                  <AccountCard
-                    account={account}
-                    busy={busyIds.has(account.id)}
-                    key={account.id}
-                    onDelete={() => setDeleteTarget(account)}
-                    onEdit={() => setFormTarget(account)}
-                    onProvision={() => void provision(account)}
-                    onToggle={(enabled) => void toggle(account, enabled)}
-                  />
-                ))}
-              </section>
-            )}
-          </>
+          <section
+            aria-label="GCP account list"
+            className="grid gap-5 md:grid-cols-2"
+          >
+            {accounts.map((account) => (
+              <AccountCard
+                account={account}
+                busy={busyIds.has(account.id)}
+                key={account.id}
+                onDelete={() => setDeleteTarget(account)}
+                onEdit={() => setFormTarget(account)}
+                onProvision={() => void provision(account)}
+                onToggle={(enabled) => void toggle(account, enabled)}
+              />
+            ))}
+          </section>
         ) : null}
       </div>
 
