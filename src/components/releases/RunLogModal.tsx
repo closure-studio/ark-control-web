@@ -3,10 +3,12 @@ import {
   Check,
   Copy,
   RefreshCw,
+  Search,
   Terminal,
-  WrapText
+  WrapText,
+  X
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useCopyFeedback } from "@/components/accounts/useCopyFeedback";
 import {
   EMPTY_COUNT,
@@ -20,6 +22,128 @@ import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { HostRun, RunLog } from "@/types";
 import { cx, formatDateTime } from "@/utils";
+
+interface NumberedLine {
+  number: number;
+  text: string;
+  isError: boolean;
+}
+
+function LogTerminalBody({
+  countLabel,
+  totalLines,
+  visibleLines,
+  wrapLines
+}: {
+  countLabel: string;
+  totalLines: number;
+  visibleLines: NumberedLine[];
+  wrapLines: boolean;
+}) {
+  return (
+    <div className="overflow-hidden rounded-box border border-neutral-content/15 bg-neutral text-neutral-content">
+      <div className="flex items-center justify-between gap-2 border-b border-neutral-content/14 bg-black/16 px-3.5 py-2 text-[0.7rem] text-neutral-content/70">
+        <span className="inline-flex items-center gap-1.5 font-semibold">
+          <Terminal aria-hidden="true" size={13} />
+          Captured log tail
+        </span>
+        <span className="tabular-nums">
+          {totalLines > EMPTY_COUNT ? countLabel : "Empty"}
+        </span>
+      </div>
+
+      <div className="scrollbar-thin max-h-[54vh] min-h-52 overflow-auto p-3 font-mono text-xs leading-6">
+        {totalLines === EMPTY_COUNT ? (
+          <p className="p-2 text-neutral-content/60">No stored log output.</p>
+        ) : visibleLines.length === EMPTY_COUNT ? (
+          <p className="p-2 text-neutral-content/60">No log lines match the current filter.</p>
+        ) : (
+          <pre
+            className={cx(
+              "m-0",
+              wrapLines ? "whitespace-pre-wrap break-words" : "whitespace-pre"
+            )}
+          >
+            <code>
+              {visibleLines.map((line) => (
+                <span
+                  className={cx(
+                    "flex gap-3 rounded-sm px-1.5",
+                    line.isError && "bg-error/20"
+                  )}
+                  key={`${line.number}-${line.text}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="w-7 shrink-0 select-none text-right tabular-nums text-neutral-content/40"
+                  >
+                    {line.number}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    {line.text === "" ? " " : line.text}
+                  </span>
+                </span>
+              ))}
+            </code>
+          </pre>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LogSearchControls({
+  errorLineCount,
+  errorsOnly,
+  onQueryChange,
+  onToggleErrorsOnly,
+  searchQuery
+}: {
+  errorLineCount: number;
+  errorsOnly: boolean;
+  onQueryChange: (value: string) => void;
+  onToggleErrorsOnly: () => void;
+  searchQuery: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <label className="input input-sm flex w-full items-center gap-2 sm:w-72">
+        <Search aria-hidden="true" className="shrink-0 text-base-content/45" size={14} />
+        <input
+          aria-label="Filter log output"
+          className="min-w-0 grow"
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Filter log lines"
+          value={searchQuery}
+        />
+        {searchQuery !== "" ? (
+          <button
+            aria-label="Clear log filter"
+            className="text-base-content/45 hover:text-base-content"
+            onClick={() => onQueryChange("")}
+            type="button"
+          >
+            <X aria-hidden="true" size={14} />
+          </button>
+        ) : null}
+      </label>
+
+      <button
+        aria-pressed={errorsOnly}
+        className={cx(
+          "btn btn-sm gap-1.5",
+          errorsOnly && "btn-error btn-soft border border-error/40"
+        )}
+        disabled={errorLineCount === EMPTY_COUNT && !errorsOnly}
+        onClick={onToggleErrorsOnly}
+        type="button"
+      >
+        <AlertTriangle aria-hidden="true" size={13} />
+        Errors only ({errorLineCount})
+      </button>
+    </div>
+  );
+}
 
 export function RunLogModal({
   error,
@@ -37,19 +161,55 @@ export function RunLogModal({
   run: HostRun | null;
 }) {
   const [wrapLines, setWrapLines] = useState(true);
+  const [errorsOnly, setErrorsOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { copiedKey, copyText } = useCopyFeedback();
   const copied = copiedKey === LOG_COPY_KEY;
   const rawLog = log?.lastLogTail ?? null;
-  const lines = splitLogLines(rawLog);
-  const lineCountLabel =
-    lines.length === 1 ? "1 line" : `${lines.length} lines`;
+
+  const numberedLines = useMemo<NumberedLine[]>(
+    () =>
+      splitLogLines(rawLog).map((text, index) => ({
+        number: index + 1,
+        text,
+        isError: isErrorLogLine(text)
+      })),
+    [rawLog]
+  );
+
+  const errorLineCount = useMemo(
+    () => numberedLines.filter((line) => line.isError).length,
+    [numberedLines]
+  );
+
+  const visibleLines = useMemo(() => {
+    const normalized = searchQuery.trim().toLowerCase();
+    return numberedLines.filter((line) => {
+      if (errorsOnly && !line.isError) return false;
+      if (normalized !== "" && !line.text.toLowerCase().includes(normalized)) return false;
+      return true;
+    });
+  }, [errorsOnly, numberedLines, searchQuery]);
+
+  const totalLabel =
+    numberedLines.length === 1 ? "1 line" : `${numberedLines.length} lines`;
+  const countLabel =
+    visibleLines.length === numberedLines.length
+      ? totalLabel
+      : `${visibleLines.length} of ${totalLabel}`;
+
+  function handleClose() {
+    setSearchQuery("");
+    setErrorsOnly(false);
+    onClose();
+  }
 
   return (
     <FormModal
-      onClose={onClose}
+      onClose={handleClose}
       open={run !== null}
       title={run ? `Run log: ${run.hostName}` : "Run log"}
-      width="max-w-4xl"
+      width="max-w-5xl"
     >
       <div className="grid gap-3.5 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 pb-3">
@@ -132,48 +292,26 @@ export function RunLogModal({
 
         {log ? (
           <>
-            <div className="overflow-hidden rounded-box border border-neutral-content/15 bg-neutral text-neutral-content">
-              <div className="flex items-center justify-between gap-2 border-b border-neutral-content/14 bg-black/16 px-3.5 py-2 text-[0.7rem] text-neutral-content/70">
-                <span className="inline-flex items-center gap-1.5 font-semibold">
-                  <Terminal aria-hidden="true" size={13} />
-                  Captured log tail
-                </span>
-                <span className="tabular-nums">
-                  {lines.length > EMPTY_COUNT ? lineCountLabel : "Empty"}
-                </span>
-              </div>
+            {numberedLines.length > EMPTY_COUNT ? (
+              <LogSearchControls
+                errorLineCount={errorLineCount}
+                errorsOnly={errorsOnly}
+                onQueryChange={setSearchQuery}
+                onToggleErrorsOnly={() => setErrorsOnly((current) => !current)}
+                searchQuery={searchQuery}
+              />
+            ) : null}
 
-              <div className="scrollbar-thin max-h-[58vh] min-h-52 overflow-auto p-3 font-mono text-xs leading-6">
-                {lines.length > EMPTY_COUNT ? (
-                  <pre className={cx("m-0", wrapLines ? "whitespace-pre-wrap break-words" : "whitespace-pre")}>
-                    <code>
-                      {lines.map((line, index) => (
-                        <span
-                          className={cx(
-                            "flex gap-3 rounded-sm px-1.5",
-                            isErrorLogLine(line) && "bg-error/20"
-                          )}
-                          key={`${index}-${line}`}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className="w-7 shrink-0 select-none text-right tabular-nums text-neutral-content/40"
-                          >
-                            {index + 1}
-                          </span>
-                          <span className="min-w-0 flex-1">{line === "" ? " " : line}</span>
-                        </span>
-                      ))}
-                    </code>
-                  </pre>
-                ) : (
-                  <p className="p-2 text-neutral-content/60">No stored log output.</p>
-                )}
-              </div>
-            </div>
+            <LogTerminalBody
+              countLabel={countLabel}
+              totalLines={numberedLines.length}
+              visibleLines={visibleLines}
+              wrapLines={wrapLines}
+            />
 
             <p className="text-xs text-base-content/55">
-              Last checked {formatDateTime(log.lastCheckedAt)} · Updated {formatDateTime(log.updatedAt)}
+              Last checked {formatDateTime(log.lastCheckedAt)} · Updated{" "}
+              {formatDateTime(log.updatedAt)}
             </p>
           </>
         ) : null}
