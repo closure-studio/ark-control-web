@@ -94,4 +94,106 @@ describe("AccountsPage", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     expect(within(dialog).getByRole("button", { name: "Copy" })).toBeInTheDocument();
   });
+
+  it("filters accounts by status, zone, and search query and resets cleanly", async () => {
+    const pausedAccount = {
+      ...account,
+      id: 8,
+      name: "Staging EU account",
+      projectId: "ark-staging-eu",
+      serviceAccountEmail: "ark-control@ark-staging-eu.iam.gserviceaccount.com",
+      defaultZone: "europe-west1-b",
+      enabled: false
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ data: { accounts: [account, pausedAccount] } }))
+    );
+    const api = createApiClient("test-token", vi.fn());
+
+    render(<AccountsPage api={api} />);
+
+    expect(await screen.findByRole("heading", { name: "Production account" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Staging EU account" })).toBeInTheDocument();
+
+    const statusGroup = screen.getByRole("group", { name: "Filter by account status" });
+    fireEvent.click(within(statusGroup).getByRole("button", { name: /Disabled/i }));
+    expect(screen.queryByRole("heading", { name: "Production account" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Staging EU account" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(screen.getByRole("heading", { name: "Production account" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Filter by default zone" }), {
+      target: { value: "europe-west1-b" }
+    });
+    expect(screen.queryByRole("heading", { name: "Production account" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Staging EU account" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Search accounts" }), {
+      target: { value: "no-match-project" }
+    });
+    expect(screen.getByText("No matching GCP accounts")).toBeInTheDocument();
+  });
+
+  it("copies credential values and displays parsed WIF pool/provider chips", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ data: { accounts: [account] } }))
+    );
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    });
+    const api = createApiClient("test-token", vi.fn());
+
+    render(<AccountsPage api={api} />);
+    await screen.findByRole("heading", { name: "Production account" });
+
+    expect(screen.getByText("pool:ark-control")).toBeInTheDocument();
+    expect(screen.getByText("provider:cloudflare")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy project ID for Production account" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(account.projectId));
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy service account for Production account" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(account.serviceAccountEmail));
+  });
+
+  it("renders onboarding empty state and supports quick-pick zones in manual form", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ data: { accounts: [] } }))
+    );
+    const api = createApiClient("test-token", vi.fn());
+
+    render(<AccountsPage api={api} />);
+
+    expect(await screen.findByRole("heading", { name: "Connect your first GCP project" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Register manually" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "asia-east1-b" }));
+    expect(within(dialog).getByLabelText("Default zone")).toHaveValue("asia-east1-b");
+  });
+
+  it("surfaces API errors when loading or provisioning fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ data: { accounts: [account] } }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: "quota_exceeded", message: "Zone quota exhausted" } }), {
+          status: 500,
+          headers: { "content-type": "application/json" }
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const api = createApiClient("test-token", vi.fn());
+
+    render(<AccountsPage api={api} />);
+    await screen.findByRole("heading", { name: "Production account" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create VPS in Production account" }));
+    expect(await screen.findByText("Zone quota exhausted")).toBeInTheDocument();
+  });
 });
