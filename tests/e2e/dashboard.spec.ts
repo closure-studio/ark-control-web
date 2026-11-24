@@ -1,7 +1,33 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { HOST_RUN_STATUS } from "../../src/types";
 
 const LONG_CONTENT_REPEATS = 60;
 const SCROLL_TOLERANCE_PX = 1;
+const WCAG_TEXT_CONTRAST_MINIMUM = 4.5;
+const WCAG_NON_TEXT_CONTRAST_MINIMUM = 3;
+
+type Srgb = readonly [number, number, number];
+
+function contrastRatio(foreground: Srgb, background: Srgb) {
+  const srgbChannelMax = 255;
+  const srgbLinearCutoff = 0.04045;
+  const srgbLinearScale = 12.92;
+  const srgbOffset = 0.055;
+  const srgbGamma = 2.4;
+  const wcagLuminanceOffset = 0.05;
+  const relativeLuminance = (color: Srgb) => {
+    const [red, green, blue] = color.map((channel) => {
+      const srgb = channel / srgbChannelMax;
+      return srgb <= srgbLinearCutoff
+        ? srgb / srgbLinearScale
+        : ((srgb + srgbOffset) / (1 + srgbOffset)) ** srgbGamma;
+    });
+    const [redWeight, greenWeight, blueWeight] = [0.2126, 0.7152, 0.0722];
+    return red * redWeight + green * greenWeight + blue * blueWeight;
+  };
+  const luminances = [relativeLuminance(foreground), relativeLuminance(background)];
+  return (Math.max(...luminances) + wcagLuminanceOffset) / (Math.min(...luminances) + wcagLuminanceOffset);
+}
 
 const releases = [
   {
@@ -413,6 +439,81 @@ test.describe("core interactions", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     expect(browserErrors).toEqual([]);
+  });
+
+  test("keyboard focus keeps Releases inspector log controls readable", async ({ page }) => {
+    const run = {
+      ...runs[0],
+      status: HOST_RUN_STATUS.SUCCEEDED,
+      nextCheckAt: null,
+      deadlineAt: null,
+      lastAiStatus: HOST_RUN_STATUS.SUCCEEDED,
+      lastAiReason: null
+    };
+    await mockApi(page);
+    await page.route(`**/api/releases/${run.releaseId}/host-runs`, (route) =>
+      route.fulfill({ json: { data: { runs: [run] } } })
+    );
+    await page.goto("/releases");
+
+    const { hostName } = run;
+    const inspector = page.getByRole("complementary", { name: `Diagnostic inspector for ${hostName}` });
+    const controls = [
+      { name: "Copy", hasLabel: true },
+      { name: `Refresh log for ${hostName}`, hasLabel: false }
+    ];
+    await inspector.getByRole("button", { name: "Full terminal", exact: true }).focus();
+
+    for (const { name, hasLabel } of controls) {
+      const button = inspector.getByRole("button", { name, exact: true });
+      await expect(button).toBeEnabled();
+      await page.keyboard.press("Tab");
+      await expect(button.and(page.locator(":focus-visible"))).toBeFocused();
+
+      const colors = await button.evaluate((element) => {
+        const icon = element.querySelector("svg");
+        const sampleSizePx = 1;
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = sampleSizePx;
+        const context = canvas.getContext("2d");
+        if (!icon || !context) throw new Error("Cannot sample terminal button colors");
+
+        // Let the browser resolve CSS color formats and composite translucent colors in sRGB.
+        const sampleColor = (...layers: string[]) => {
+          context.clearRect(0, 0, sampleSizePx, sampleSizePx);
+          for (const layer of layers) {
+            context.fillStyle = layer;
+            context.fillRect(0, 0, sampleSizePx, sampleSizePx);
+          }
+          const [red, green, blue] = context.getImageData(0, 0, sampleSizePx, sampleSizePx).data;
+          return [red, green, blue] as const;
+        };
+        // shortcut: flat backgrounds and an outward outline, sample rendered pixels if either changes.
+        const surfaceLayers: string[] = [];
+        for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+          surfaceLayers.unshift(getComputedStyle(ancestor).backgroundColor);
+        }
+        const style = getComputedStyle(element);
+        const buttonLayers = [...surfaceLayers, style.backgroundColor];
+        return {
+          surface: sampleColor(...surfaceLayers),
+          fill: sampleColor(...buttonLayers),
+          label: sampleColor(...buttonLayers, style.color),
+          icon: sampleColor(...buttonLayers, getComputedStyle(icon).stroke),
+          outline: sampleColor(...surfaceLayers, style.outlineColor),
+          outlineWidth: Number.parseFloat(style.outlineWidth)
+        };
+      });
+
+      if (hasLabel) {
+        expect.soft(contrastRatio(colors.label, colors.fill), `${name} label contrast`).toBeGreaterThanOrEqual(WCAG_TEXT_CONTRAST_MINIMUM);
+      }
+      const iconMinimum = hasLabel ? WCAG_TEXT_CONTRAST_MINIMUM : WCAG_NON_TEXT_CONTRAST_MINIMUM;
+      expect.soft(contrastRatio(colors.icon, colors.fill), `${name} icon contrast`).toBeGreaterThanOrEqual(iconMinimum);
+      expect.soft(colors.outlineWidth, `${name} outline width`).toBeGreaterThan(0);
+      expect.soft(contrastRatio(colors.outline, colors.surface), `${name} outline contrast against toolbar`).toBeGreaterThanOrEqual(WCAG_NON_TEXT_CONTRAST_MINIMUM);
+      expect.soft(contrastRatio(colors.outline, colors.fill), `${name} outline contrast against button`).toBeGreaterThanOrEqual(WCAG_NON_TEXT_CONTRAST_MINIMUM);
+    }
   });
 
   test("top bar remains glassy and fixed while scrolling", async ({ page }) => {
