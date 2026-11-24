@@ -31,7 +31,7 @@ creation remains part of the API deployment workflow.
 ```sh
 npm install
 npm test
-npm run typecheck
+npm run quality
 npm run build
 npm run dev
 npm run deploy

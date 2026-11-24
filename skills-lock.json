@@ -1,12 +1,40 @@
 {
   "version": 2,
   "skills": {
+    "api-and-interface-design": {
+      "source": "addyosmani/agent-skills",
+      "commit": "e997ac5b9a74eab332d5e9793bb38a38c8cfdd74",
+      "sourceType": "github",
+      "skillPath": "skills/api-and-interface-design/SKILL.md",
+      "computedHash": "f8cb4ee59fe787bf94bfe40086ca4652d3cb738e16805d10acca2da3b80a001e"
+    },
+    "code-review-and-quality": {
+      "source": "addyosmani/agent-skills",
+      "commit": "e997ac5b9a74eab332d5e9793bb38a38c8cfdd74",
+      "sourceType": "github",
+      "skillPath": "skills/code-review-and-quality/SKILL.md",
+      "computedHash": "c04b5cb0f38ea3aec41b0219478124a9b38d467c3cecd82cdf0ad694d9403628"
+    },
+    "debugging-and-error-recovery": {
+      "source": "addyosmani/agent-skills",
+      "commit": "e997ac5b9a74eab332d5e9793bb38a38c8cfdd74",
+      "sourceType": "github",
+      "skillPath": "skills/debugging-and-error-recovery/SKILL.md",
+      "computedHash": "aa26ffd65f2e2759c66806c4a3111c6fbaad612c5f39799bd3bc6cd942abd0fc"
+    },
     "kill-ai-slop": {
       "source": "yetone/kill-ai-slop",
       "commit": "f6e2ae32b30443ec7bd0da4da971ee18d8f8ffcb",
       "sourceType": "github",
       "skillPath": "skill/SKILL.md",
       "computedHash": "ce756db3f65e106c76bc690a4442422f0bc2858ad3b7a1539610e7629dc11ed3"
+    },
+    "verify-findings": {
+      "source": "porada/domfiles",
+      "commit": "9529b976ff0164d6ac56e26df34a9fcf63a54edc",
+      "sourceType": "github",
+      "skillPath": "skills/verify-findings/SKILL.md",
+      "computedHash": "3a83d2e2842dafaee07d0772516f21d56723a4c7d25d1b8a1403beed14e9af33"
     }
   }
 }

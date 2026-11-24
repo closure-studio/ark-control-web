@@ -5,20 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "check:ai": "node --test scripts/check-ai-code.test.mjs && node scripts/check-ai-code.mjs",
-    "check:dead-code": "knip --no-progress",
-    "check:duplicates": "jscpd --config .jscpd.json --no-tips src",
-    "ci": "npm run typecheck && npm run quality && npm test && npm run build",
+    "ci": "npm run quality && npm test && npm run build",
     "deploy": "npm run build && wrangler deploy",
     "dev": "vite",
-    "dev:worker": "npm run build && wrangler dev",
-    "lint": "eslint . --max-warnings 0",
-    "lint:fix": "eslint . --fix",
-    "preview": "vite preview",
-    "quality": "npm run lint && npm run check:ai && npm run check:dead-code && npm run check:duplicates",
+    "quality": "tsc --noEmit && eslint . --max-warnings 0 && node --test scripts/check-ai-code.test.mjs && node scripts/check-ai-code.mjs && knip --no-progress && jscpd --config .jscpd.json --no-tips src",
     "test": "vitest run",
-    "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "lucide-react": "^1.18.0",

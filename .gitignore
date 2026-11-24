@@ -3,6 +3,8 @@ dist/
 .wrangler/
 *.log
 playwright-report/
+.agent-tools/
+.agents/skills/
 test-results/
 output/
 tmp/
