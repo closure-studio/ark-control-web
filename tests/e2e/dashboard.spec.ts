@@ -185,6 +185,24 @@ for (const viewport of [
 test.describe("core interactions", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
+  test("dashboard keeps its light theme and metric colors in dark mode", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await mockApi(page);
+    await page.goto("/dashboard");
+
+    const metrics = page.getByRole("article");
+    const managedVpsValue = metrics
+      .filter({ has: page.getByText("Managed VPS", { exact: true }) })
+      .getByRole("strong");
+    const activeRunsValue = metrics
+      .filter({ has: page.getByText("Active runs", { exact: true }) })
+      .getByRole("strong");
+
+    await expect.soft(page.locator(":root")).toHaveCSS("color-scheme", "light");
+    await expect.soft(managedVpsValue).toHaveCSS("color", "rgb(0, 107, 115)");
+    await expect.soft(activeRunsValue).toHaveCSS("color", "rgb(135, 83, 0)");
+  });
+
   test("navigation, filtering, and run logs work without console errors", async ({ page }, testInfo) => {
     const browserErrors: string[] = [];
     page.on("console", (message) => {
