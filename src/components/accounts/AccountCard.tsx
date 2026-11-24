@@ -39,23 +39,17 @@ function DetailRow({
         <button
           aria-label={copyLabel}
           className={cx(
-            "accounts-copy-btn inline-flex items-center gap-1 rounded border px-2 py-0.5 transition-colors duration-150",
-            copied
-              ? "border-success/50 bg-base-100 text-success"
-              : "border-base-300 bg-base-100 text-base-content/70 hover:border-base-content/40 hover:text-base-content"
+            "btn btn-xs h-6 min-h-6 gap-1 px-2 text-[0.7rem]",
+            copied ? "btn-success btn-soft" : "btn-ghost border border-base-300 bg-base-100"
           )}
           onClick={onCopy}
           type="button"
         >
-          {copied ? (
-            <Check aria-hidden="true" size={11} />
-          ) : (
-            <Copy aria-hidden="true" size={11} />
-          )}
+          {copied ? <Check aria-hidden="true" size={11} /> : <Copy aria-hidden="true" size={11} />}
           <span>{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
-      <code className="accounts-code-value block text-xs leading-5 text-base-content/85">
+      <code className="block break-normal text-xs leading-5 text-base-content/85 [overflow-wrap:anywhere]">
         {value}
       </code>
     </div>
@@ -79,21 +73,20 @@ export function AccountCard({
 }) {
   const { copiedKey, copyText } = useCopyFeedback();
   const hasDistinctProjectId =
-    account.projectId.trim() !== "" &&
-    account.projectId.trim() !== account.name.trim();
+    account.projectId.trim() !== "" && account.projectId.trim() !== account.name.trim();
 
   return (
     <article
       className={cx(
-        "accounts-card flex flex-col justify-between rounded-lg border bg-base-100 transition-colors duration-150",
-        !account.enabled && "accounts-card-disabled",
-        busy && "accounts-card-busy"
+        "card card-border flex flex-col justify-between overflow-hidden border-base-content/18 bg-base-100 shadow-xs transition-colors hover:border-base-content/30",
+        !account.enabled && "bg-base-200/35",
+        busy && "border-info/55"
       )}
     >
       <div className="flex flex-1 flex-col p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="device-icon">
+            <div className="grid size-9 shrink-0 place-items-center rounded-field border border-base-content/25 bg-base-100 text-info shadow-2xs">
               <Cloud aria-hidden="true" size={18} />
             </div>
 
@@ -111,11 +104,7 @@ export function AccountCard({
 
           <div className="flex shrink-0 items-center gap-2">
             {busy ? (
-              <LoaderCircle
-                aria-hidden="true"
-                className="animate-spin text-info"
-                size={16}
-              />
+              <LoaderCircle aria-hidden="true" className="animate-spin text-info" size={16} />
             ) : null}
             <StatusBadge value={account.enabled ? "Enabled" : "Disabled"} />
           </div>
@@ -156,11 +145,11 @@ export function AccountCard({
         </div>
       </div>
 
-      <details className="accounts-details border-t border-base-300">
-        <summary className="accounts-details-summary flex cursor-pointer list-none items-center gap-1.5 px-5 py-3 text-xs font-semibold text-base-content/65 select-none transition-colors duration-150 hover:text-base-content sm:px-6">
+      <details className="group border-t border-base-300">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 px-5 py-3 text-xs font-semibold text-base-content/65 select-none transition-colors hover:text-base-content sm:px-6 [&::-webkit-details-marker]:hidden">
           <ChevronRight
             aria-hidden="true"
-            className="accounts-details-chevron shrink-0 transition-transform duration-150"
+            className="shrink-0 transition-transform duration-150 group-open:rotate-90"
             size={14}
           />
           <span>Connection details</span>
@@ -191,7 +180,7 @@ export function AccountCard({
         </div>
       </details>
 
-      <footer className="accounts-card-footer flex items-center justify-between gap-3 rounded-b-lg border-t border-base-300 px-5 py-3.5 sm:px-6">
+      <footer className="flex items-center justify-between gap-3 border-t border-base-300 bg-base-200/45 px-5 py-3.5 sm:px-6">
         <label className="inline-flex cursor-pointer items-center gap-2.5">
           <input
             checked={account.enabled}
@@ -218,7 +207,7 @@ export function AccountCard({
           </button>
           <button
             aria-label={`Delete ${account.name}`}
-            className="btn btn-error btn-sm btn-square"
+            className="btn btn-error btn-soft btn-sm btn-square"
             disabled={busy}
             onClick={onDelete}
             title={`Delete ${account.name}`}

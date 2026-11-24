@@ -1,62 +1,142 @@
-import {
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  FileText,
-  LoaderCircle,
-  RefreshCw
-} from "lucide-react";
+import { Activity, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ApiClient } from "@/api/client";
-import { StatusRail } from "@/components/StatusRail";
+import { HostRunRow } from "@/components/releases/HostRunRow";
+import { ReleaseDetailHeader } from "@/components/releases/ReleaseDetailHeader";
+import {
+  ACTIVE_RUN_STATUSES,
+  EMPTY_COUNT,
+  FIRST_PAGE_OFFSET,
+  matchesRunFilter,
+  PAGE_SIZE,
+  RELEASE_POLL_INTERVAL_MS,
+  RELEASE_POLL_INTERVAL_SECONDS,
+  RUN_FILTER_ACTIVE,
+  RUN_FILTER_ALL,
+  RUN_FILTER_ATTENTION,
+  RUN_FILTER_SUCCEEDED,
+  summarizeRunFilters,
+  type RunFilter,
+  type RunFilterCounts
+} from "@/components/releases/releaseHelpers";
+import { ReleaseRail } from "@/components/releases/ReleaseRail";
+import { RunLogModal } from "@/components/releases/RunLogModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
-import { FormModal } from "@/components/ui/FormModal";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { usePolling } from "@/hooks/usePolling";
 import type { HostRun, ReleaseSummary, RunLog } from "@/types";
-import { formatDateTime, messageForError } from "@/utils";
+import { cx, messageForError } from "@/utils";
 
-const PAGE_SIZE = 25;
-const RELEASE_POLL_INTERVAL_MS = 15_000;
-const ACTIVE_RUN_STATUSES: ReadonlySet<HostRun["status"]> = new Set(["pending", "running"]);
+const FILTER_OPTIONS: ReadonlyArray<{
+  key: RunFilter;
+  label: string;
+  countTone: string;
+}> = [
+  { key: RUN_FILTER_ALL, label: "All", countTone: "text-base-content/55" },
+  { key: RUN_FILTER_ATTENTION, label: "Attention", countTone: "text-error" },
+  { key: RUN_FILTER_ACTIVE, label: "Active", countTone: "text-info" },
+  { key: RUN_FILTER_SUCCEEDED, label: "Succeeded", countTone: "text-success" }
+];
 
-function RunLogModal({ run, log, loading, error, onClose, onRefresh }: {
-  run: HostRun | null;
-  log: RunLog | null;
-  loading: boolean;
-  error: string | null;
-  onClose: () => void;
-  onRefresh: () => void;
+function RunFilterBar({
+  counts,
+  filter,
+  onClear,
+  onFilterChange,
+  onQueryChange,
+  query
+}: {
+  counts: RunFilterCounts;
+  filter: RunFilter;
+  onClear: () => void;
+  onFilterChange: (next: RunFilter) => void;
+  onQueryChange: (next: string) => void;
+  query: string;
 }) {
+  const filtersActive = filter !== RUN_FILTER_ALL || query.trim() !== "";
+
   return (
-    <FormModal onClose={onClose} open={run !== null} title={run ? `Run log: ${run.hostName}` : "Run log"} width="max-w-4xl">
-      <div className="grid gap-3 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 pb-3">
-          <div className="flex items-center gap-2"><StatusBadge value={run?.status} /><span className="font-mono text-xs text-base-content/60">{run?.hostIp}</span></div>
-          <button className="btn btn-sm" disabled={loading} onClick={onRefresh} type="button"><RefreshCw className={loading ? "animate-spin" : undefined} size={15} />Refresh</button>
-        </div>
-        {error ? <ErrorAlert message={error} onRetry={onRefresh} /> : null}
-        {loading && !log ? <LoadingBlock label="Loading run log" /> : null}
-        {log ? (
-          <>
-            <pre className="control-code control-scrollbar max-h-[62vh] min-h-52 overflow-auto rounded-lg bg-neutral p-4 text-xs text-neutral-content"><code>{log.lastLogTail ?? "No stored log output."}</code></pre>
-            <p className="text-xs text-base-content/55">Last checked {formatDateTime(log.lastCheckedAt)} · Updated {formatDateTime(log.updatedAt)}</p>
-          </>
+    <div className="flex flex-col gap-3 border-b border-base-300 bg-base-200/25 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div
+        aria-label="Filter host runs by status"
+        className="grid grid-cols-2 gap-1 rounded-field border border-base-300 bg-base-200/60 p-1 sm:flex sm:items-center"
+        role="group"
+      >
+        {FILTER_OPTIONS.map((option) => {
+          const active = filter === option.key;
+          const count = counts[option.key];
+          return (
+            <button
+              aria-pressed={active}
+              className={cx(
+                "inline-flex items-center justify-center gap-1.5 rounded-field border px-2.5 py-1 text-xs font-bold transition-colors",
+                active
+                  ? "border-base-content/20 bg-base-100 text-base-content shadow-2xs"
+                  : "border-transparent text-base-content/65 hover:bg-base-content/6 hover:text-base-content"
+              )}
+              key={option.key}
+              onClick={() => onFilterChange(option.key)}
+              type="button"
+            >
+              <span>{option.label}</span>
+              <span
+                className={cx(
+                  "text-[0.7rem] tabular-nums",
+                  count > EMPTY_COUNT ? option.countTone : "text-base-content/40"
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <label className="input input-sm flex w-full items-center gap-2 sm:w-64">
+          <Search aria-hidden="true" className="shrink-0 text-base-content/45" size={14} />
+          <input
+            aria-label="Search host runs"
+            className="min-w-0 grow"
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Search host, IP, or error"
+            value={query}
+          />
+          {query !== "" ? (
+            <button
+              aria-label="Clear search"
+              className="text-base-content/45 transition-colors hover:text-base-content"
+              onClick={() => onQueryChange("")}
+              type="button"
+            >
+              <X aria-hidden="true" size={14} />
+            </button>
+          ) : null}
+        </label>
+        {filtersActive ? (
+          <button
+            className="btn btn-ghost btn-sm shrink-0 px-2"
+            onClick={onClear}
+            type="button"
+          >
+            Reset
+          </button>
         ) : null}
       </div>
-    </FormModal>
+    </div>
   );
 }
 
 export function ReleasesPage({ api }: { api: ApiClient }) {
-  const [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(FIRST_PAGE_OFFSET);
   const [releases, setReleases] = useState<ReleaseSummary[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [runs, setRuns] = useState<HostRun[]>([]);
+  const [runFilter, setRunFilter] = useState<RunFilter>(RUN_FILTER_ALL);
+  const [runQuery, setRunQuery] = useState("");
   const [releaseLoading, setReleaseLoading] = useState(true);
   const [runsLoading, setRunsLoading] = useState(false);
   const [releaseError, setReleaseError] = useState<string | null>(null);
@@ -71,45 +151,77 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
     [releases, selectedId]
   );
   const hasActiveRuns = runs.some((run) => ACTIVE_RUN_STATUSES.has(run.status));
+  const filterCounts = useMemo(() => summarizeRunFilters(runs), [runs]);
+  const filteredRuns = useMemo(
+    () => runs.filter((run) => matchesRunFilter(run, runFilter, runQuery)),
+    [runs, runFilter, runQuery]
+  );
 
-  const loadReleases = useCallback(async () => {
-    setReleaseLoading(true);
-    try {
-      const response = await api.listReleases(PAGE_SIZE, offset);
-      setReleases(response.releases);
-      setSelectedId((current) =>
-        current && response.releases.some((release) => release.id === current)
-          ? current
-          : response.releases[0]?.id ?? null
-      );
-      setReleaseError(null);
-    } catch (error) {
-      setReleaseError(messageForError(error, "Unable to load releases."));
-    } finally {
-      setReleaseLoading(false);
-    }
-  }, [api, offset]);
+  const loadReleases = useCallback(
+    async (showLoading = true) => {
+      if (showLoading) setReleaseLoading(true);
+      try {
+        const response = await api.listReleases(PAGE_SIZE, offset);
+        setReleases(response.releases);
+        setSelectedId((current) =>
+          current && response.releases.some((release) => release.id === current)
+            ? current
+            : response.releases[0]?.id ?? null
+        );
+        setReleaseError(null);
+      } catch (error) {
+        setReleaseError(messageForError(error, "Unable to load releases."));
+      } finally {
+        setReleaseLoading(false);
+      }
+    },
+    [api, offset]
+  );
 
-  const loadRuns = useCallback(async (showLoading = true) => {
-    if (!selectedId) {
-      setRuns([]);
-      return;
-    }
-    if (showLoading) setRunsLoading(true);
-    try {
-      const response = await api.listReleaseRuns(selectedId);
-      setRuns(response.runs);
-      setRunsError(null);
-    } catch (error) {
-      setRunsError(messageForError(error, "Unable to load release runs."));
-    } finally {
-      setRunsLoading(false);
-    }
-  }, [api, selectedId]);
+  const loadRuns = useCallback(
+    async (showLoading = true) => {
+      if (!selectedId) {
+        setRuns([]);
+        return;
+      }
+      if (showLoading) setRunsLoading(true);
+      try {
+        const response = await api.listReleaseRuns(selectedId);
+        setRuns(response.runs);
+        setRunsError(null);
+      } catch (error) {
+        setRunsError(messageForError(error, "Unable to load release runs."));
+      } finally {
+        setRunsLoading(false);
+      }
+    },
+    [api, selectedId]
+  );
 
-  useEffect(() => { void loadReleases(); }, [loadReleases]);
-  useEffect(() => { setRuns([]); setSelectedRun(null); void loadRuns(true); }, [loadRuns]);
-  usePolling(() => { void loadRuns(false); void loadReleases(); }, RELEASE_POLL_INTERVAL_MS, hasActiveRuns);
+  useEffect(() => {
+    void loadReleases(true);
+  }, [loadReleases]);
+
+  useEffect(() => {
+    setRuns([]);
+    setSelectedRun(null);
+    setRunFilter(RUN_FILTER_ALL);
+    setRunQuery("");
+    void loadRuns(true);
+  }, [loadRuns]);
+
+  usePolling(
+    () => {
+      void loadRuns(false);
+      void loadReleases(false);
+    },
+    RELEASE_POLL_INTERVAL_MS,
+    hasActiveRuns
+  );
+
+  async function refreshAll() {
+    await Promise.all([loadReleases(true), loadRuns(true)]);
+  }
 
   async function loadLog(run: HostRun, showLoading = true) {
     if (showLoading) setLogLoading(true);
@@ -130,109 +242,138 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
     void loadLog(run);
   }
 
+  function clearFilters() {
+    setRunFilter(RUN_FILTER_ALL);
+    setRunQuery("");
+  }
+
   return (
     <div className="min-w-0">
       <PageHeader
-        actions={<RefreshButton loading={releaseLoading} onClick={() => void loadReleases()} />}
-        eyebrow="Verification"
+        actions={(
+          <>
+            {hasActiveRuns ? (
+              <span className="inline-flex h-8 items-center gap-1.5 rounded-field border border-info/30 bg-info/10 px-2.5 text-xs font-bold text-info">
+                <Activity aria-hidden="true" size={14} />
+                Live · {RELEASE_POLL_INTERVAL_SECONDS}s
+              </span>
+            ) : null}
+            <RefreshButton loading={releaseLoading} onClick={() => void refreshAll()} />
+          </>
+        )}
+        description="APK release rollouts, host verification telemetry, and live deployment logs."
         title="Releases"
       />
-      {releaseError ? <ErrorAlert message={releaseError} onRetry={() => void loadReleases()} /> : null}
 
-      <div className="mt-4 grid min-w-0 gap-6 xl:grid-cols-[20rem_minmax(0,1fr)]">
-        <section aria-labelledby="release-list-title" className="min-w-0">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="font-bold" id="release-list-title">Release list</h2>
-            <div className="join">
-              <button aria-label="Previous release page" className="btn btn-square btn-sm join-item" disabled={offset === 0 || releaseLoading} onClick={() => setOffset((current) => Math.max(0, current - PAGE_SIZE))} type="button"><ChevronLeft size={17} /></button>
-              <button aria-label="Next release page" className="btn btn-square btn-sm join-item" disabled={releases.length < PAGE_SIZE || releaseLoading} onClick={() => setOffset((current) => current + PAGE_SIZE)} type="button"><ChevronRight size={17} /></button>
-            </div>
-          </div>
-          {releaseLoading && releases.length === 0 ? <LoadingBlock label="Loading releases" /> : null}
-          {!releaseLoading && releases.length === 0 ? <EmptyState title="No releases" /> : null}
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-1">
-            {releases.map((release) => {
-              const selected = release.id === selectedId;
-              return (
-                <article className={`control-panel card border bg-base-100 ${selected ? "!border-info ring-2 ring-info/20" : "border-base-300"}`} key={release.id}>
-                  <div className="card-body gap-4 p-4">
-                    <button className="min-w-0 text-left" onClick={() => setSelectedId(release.id)} type="button">
-                      <strong className="block break-words text-sm">{release.apkFilename}</strong>
-                      <span className="mt-1 block text-xs text-base-content/55">{formatDateTime(release.createdAt)}</span>
-                    </button>
-                    <StatusRail counts={release.statusCounts} />
-                    <a className="btn btn-ghost btn-xs justify-start" href={release.finalUrl} rel="noreferrer" target="_blank"><ExternalLink size={14} />Open APK</a>
+      <div className="grid gap-5">
+        {releaseError ? (
+          <ErrorAlert message={releaseError} onRetry={() => void loadReleases(true)} />
+        ) : null}
+
+        <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[21rem_minmax(0,1fr)]">
+          <ReleaseRail
+            loading={releaseLoading}
+            offset={offset}
+            onNextPage={() => setOffset((current) => current + PAGE_SIZE)}
+            onPreviousPage={() =>
+              setOffset((current) => Math.max(FIRST_PAGE_OFFSET, current - PAGE_SIZE))
+            }
+            onSelect={setSelectedId}
+            releases={releases}
+            selectedId={selectedId}
+          />
+
+          <section
+            aria-labelledby="release-runs-title"
+            className="card card-border min-w-0 overflow-hidden border-base-content/18 bg-base-100 shadow-xs"
+          >
+            {selectedRelease ? (
+              <>
+                <ReleaseDetailHeader
+                  onRefreshRuns={() => void loadRuns(true)}
+                  release={selectedRelease}
+                  runsLoading={runsLoading}
+                />
+
+                {runs.length > EMPTY_COUNT ? (
+                  <RunFilterBar
+                    counts={filterCounts}
+                    filter={runFilter}
+                    onClear={clearFilters}
+                    onFilterChange={setRunFilter}
+                    onQueryChange={setRunQuery}
+                    query={runQuery}
+                  />
+                ) : null}
+
+                {runsError ? (
+                  <div className="p-4 sm:p-5">
+                    <ErrorAlert message={runsError} onRetry={() => void loadRuns(true)} />
                   </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
+                ) : null}
 
-        <section aria-labelledby="release-runs-title" className="min-w-0">
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div className="min-w-0">
-              <p className="page-kicker">Host deployments</p>
-              <h2 className="mt-1 break-words text-lg font-bold" id="release-runs-title">{selectedRelease?.apkFilename ?? "Select a release"}</h2>
-            </div>
-            <button className="btn btn-sm" disabled={!selectedId || runsLoading} onClick={() => void loadRuns(true)} type="button">{runsLoading ? <LoaderCircle className="animate-spin" size={15} /> : <RefreshCw size={15} />}Refresh runs</button>
-          </div>
-          {runsError ? <ErrorAlert message={runsError} onRetry={() => void loadRuns(true)} /> : null}
-          {runsLoading && runs.length === 0 ? <LoadingBlock label="Loading host runs" /> : null}
-          {!runsLoading && selectedId && runs.length === 0 ? <EmptyState title="No host runs" detail="This release has no deployment records." /> : null}
-          {!selectedId ? <EmptyState title="No release selected" /> : null}
+                {runsLoading && runs.length === EMPTY_COUNT ? (
+                  <LoadingBlock label="Loading host runs" />
+                ) : null}
 
-          {runs.length > 0 ? (
-            <>
-            <div className="control-panel hidden overflow-x-auto border bg-base-100 min-[1900px]:block">
-              <table className="control-table table table-sm min-w-[66rem]">
-                <thead><tr><th>Host</th><th>Status</th><th>AI review</th><th>Last checked</th><th>Error</th><th /></tr></thead>
-                <tbody>
-                  {runs.map((run) => (
-                    <tr key={run.id}>
-                      <td><strong>{run.hostName}</strong><span className="mt-1 block font-mono text-xs text-base-content/55">{run.hostIp}</span></td>
-                      <td><StatusBadge value={run.status} /></td>
-                      <td className="max-w-64 whitespace-normal"><StatusBadge value={run.lastAiStatus} />{run.lastAiReason ? <p className="mt-1 break-words text-xs text-base-content/60">{run.lastAiReason}</p> : null}</td>
-                      <td>{formatDateTime(run.lastCheckedAt)}</td>
-                      <td className="max-w-64 whitespace-normal text-xs text-error">{run.errorMessage ?? "None"}</td>
-                      <td className="text-right"><div className="tooltip tooltip-left" data-tip="Open log"><button aria-label={`Open log for ${run.hostName}`} className="btn btn-square btn-sm" onClick={() => openLog(run)} type="button"><FileText size={15} /></button></div></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="grid gap-3 min-[1900px]:hidden">
-              {runs.map((run) => (
-                <article className="control-panel card border bg-base-100" key={run.id}>
-                  <div className="card-body gap-3 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0"><h4 className="break-words font-black">{run.hostName}</h4><p className="mt-1 break-all font-mono text-xs text-base-content/55">{run.hostIp}</p></div>
-                      <StatusBadge value={run.status} />
-                    </div>
-                    <div className="border-y border-base-300 py-3">
-                      <div className="flex items-center gap-2"><span className="text-xs font-bold text-base-content/55">AI review</span><StatusBadge value={run.lastAiStatus} /></div>
-                      {run.lastAiReason ? <p className="mt-2 break-words text-xs text-base-content/65">{run.lastAiReason}</p> : null}
-                      {run.errorMessage ? <p className="mt-2 break-words text-xs text-error">{run.errorMessage}</p> : null}
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-base-content/55">{formatDateTime(run.lastCheckedAt)}</span>
-                      <button className="btn btn-sm" onClick={() => openLog(run)} type="button"><FileText size={15} />Log</button>
+                {!runsLoading && runs.length === EMPTY_COUNT && !runsError ? (
+                  <EmptyState
+                    detail="This release has no host deployment records."
+                    title="No host runs"
+                  />
+                ) : null}
+
+                {runs.length > EMPTY_COUNT && filteredRuns.length === EMPTY_COUNT ? (
+                  <div className="grid min-h-44 place-items-center px-6 py-8 text-center">
+                    <div>
+                      <p className="font-extrabold text-base-content">No matching host runs</p>
+                      <p className="mt-1 text-xs text-base-content/60">
+                        Adjust the status filter or search query to inspect other hosts.
+                      </p>
+                      <button
+                        className="btn btn-sm mt-4"
+                        onClick={clearFilters}
+                        type="button"
+                      >
+                        Clear filters
+                      </button>
                     </div>
                   </div>
-                </article>
-              ))}
-            </div>
-            </>
-          ) : null}
-        </section>
+                ) : null}
+
+                {filteredRuns.length > EMPTY_COUNT ? (
+                  <div className="divide-y divide-base-300">
+                    {filteredRuns.map((run) => (
+                      <HostRunRow key={run.id} onOpenLog={openLog} run={run} />
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="p-5 sm:p-6">
+                <h2 className="sr-only" id="release-runs-title">
+                  Host deployments
+                </h2>
+                <EmptyState
+                  detail="Choose a release from the history rail to inspect host deployments."
+                  title="No release selected"
+                />
+              </div>
+            )}
+          </section>
+        </div>
       </div>
 
       <RunLogModal
         error={logError}
         loading={logLoading}
         log={log}
-        onClose={() => { setSelectedRun(null); setLog(null); setLogError(null); }}
-        onRefresh={() => selectedRun ? void loadLog(selectedRun) : undefined}
+        onClose={() => {
+          setSelectedRun(null);
+          setLog(null);
+          setLogError(null);
+        }}
+        onRefresh={() => (selectedRun ? void loadLog(selectedRun) : undefined)}
         run={selectedRun}
       />
     </div>

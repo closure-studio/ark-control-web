@@ -1,14 +1,23 @@
-import { Gauge, KeyRound, LogOut, Menu, PackageCheck, Server, ShieldCheck, SquareTerminal } from "lucide-react";
+import {
+  Gauge,
+  KeyRound,
+  LogOut,
+  Menu,
+  PackageCheck,
+  Server,
+  ShieldCheck,
+  SquareTerminal
+} from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cx } from "@/utils";
 
 const navItems = [
-  { path: "/dashboard", label: "Dashboard", icon: Gauge, eyebrow: "Control plane", title: "Operations Dashboard" },
-  { path: "/vps", label: "VPS", icon: Server, eyebrow: "Infrastructure", title: "VPS Inventory" },
-  { path: "/accounts", label: "Accounts", icon: KeyRound, eyebrow: "Cloud access", title: "GCP Accounts" },
-  { path: "/releases", label: "Releases", icon: PackageCheck, eyebrow: "Verification", title: "Release Runs" }
+  { path: "/dashboard", label: "Dashboard", icon: Gauge },
+  { path: "/vps", label: "VPS", icon: Server },
+  { path: "/accounts", label: "Accounts", icon: KeyRound },
+  { path: "/releases", label: "Releases", icon: PackageCheck }
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -28,10 +37,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         type="checkbox"
       />
       <div className="drawer-content flex min-h-screen min-w-0 flex-col">
-        <a className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:btn" href="#main-content">
+        <a
+          className="sr-only focus:not-sr-only focus:btn focus:absolute focus:left-3 focus:top-3 focus:z-50"
+          href="#main-content"
+        >
           Skip to content
         </a>
-        <header className="app-topbar navbar sticky top-0 z-30 min-h-16 border-b border-base-300 px-3 sm:px-5">
+        <header className="app-topbar navbar sticky top-0 z-30 min-h-16 border-b border-base-content/12 bg-base-100/88 px-3 shadow-xs backdrop-blur-[18px] backdrop-saturate-125 sm:px-5">
           <div className="navbar-start min-w-0 gap-2">
             <button
               aria-label="Open navigation"
@@ -42,12 +54,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Menu aria-hidden="true" size={20} />
             </button>
             <div className="flex min-w-0 items-center gap-2 text-sm">
-              <div className="device-icon">
+              <div className="grid size-9 shrink-0 place-items-center rounded-field border border-base-content/25 bg-base-100 text-info shadow-2xs">
                 <SquareTerminal aria-hidden="true" size={18} />
               </div>
               <span className="font-bold">Ark Control</span>
               <span className="hidden text-base-content/30 sm:inline">/</span>
-              <span className="hidden truncate font-medium text-base-content/60 sm:inline">{current.label}</span>
+              <span className="hidden truncate font-medium text-base-content/60 sm:inline">
+                {current.label}
+              </span>
             </div>
           </div>
           <div className="navbar-end">
@@ -57,35 +71,63 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
-        <main aria-label="Application content" className="min-w-0 flex-1 p-4 sm:p-5 lg:p-7" id="main-content">
+        <main
+          aria-label="Application content"
+          className="min-w-0 flex-1 p-4 sm:p-5 lg:p-7"
+          id="main-content"
+        >
           <div className="mx-auto w-full max-w-[1480px]">{children}</div>
         </main>
       </div>
 
       <div className="drawer-side z-40">
         <label aria-label="Close navigation" className="drawer-overlay" htmlFor="navigation-drawer" />
-        <aside className="app-sidebar flex min-h-full w-64 flex-col border-r">
-          <header className="sidebar-brand border-b border-white/10">
-            <div className="device-icon">
+        <aside className="flex min-h-full w-64 flex-col border-r border-neutral-content/15 bg-neutral text-neutral-content">
+          <header className="flex h-16 min-h-16 items-center gap-3 border-b border-neutral-content/12 px-5">
+            <div className="grid size-9 shrink-0 place-items-center rounded-field border border-base-content/25 bg-base-100 text-info shadow-2xs">
               <ShieldCheck aria-hidden="true" size={19} />
             </div>
-            <strong className="sidebar-brand-title">Ark Control</strong>
+            <strong className="truncate text-[0.9375rem] font-black leading-none">
+              Ark Control
+            </strong>
           </header>
 
           <nav aria-label="Primary navigation" className="grow overflow-y-auto p-3">
-            <p className="sidebar-muted mb-2 px-3 text-[0.65rem] font-bold uppercase">Workspace</p>
-            <ul className="menu menu-sm w-full gap-1">
+            <p className="mb-2 px-3 text-[0.65rem] font-bold uppercase text-neutral-content/55">
+              Workspace
+            </p>
+            <ul className="menu menu-sm w-full gap-1 p-0">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <li className="w-full" key={item.path}>
                     <NavLink
-                      className={({ isActive }) => cx("w-full", isActive && "active")}
+                      className={({ isActive }) =>
+                        cx(
+                          "min-h-10.5 w-full gap-2.5 rounded-field border text-[0.8125rem] font-bold transition-colors",
+                          isActive
+                            ? "border-info/55 bg-info/18 text-neutral-content shadow-[inset_3px_0_0_var(--color-info)]"
+                            : "border-transparent text-neutral-content/85 hover:border-neutral-content/20 hover:bg-neutral-content/10 hover:text-neutral-content"
+                        )
+                      }
                       onClick={() => setDrawerOpen(false)}
                       to={item.path}
                     >
-                      <span className="nav-icon"><Icon aria-hidden="true" size={16} /></span>
-                      <span>{item.label}</span>
+                      {({ isActive }) => (
+                        <>
+                          <span
+                            className={cx(
+                              "grid size-7.5 shrink-0 place-items-center rounded-field border bg-base-100",
+                              isActive
+                                ? "border-info/60 text-info"
+                                : "border-base-content/25 text-base-content"
+                            )}
+                          >
+                            <Icon aria-hidden="true" size={16} />
+                          </span>
+                          <span>{item.label}</span>
+                        </>
+                      )}
                     </NavLink>
                   </li>
                 );
@@ -93,8 +135,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             </ul>
           </nav>
 
-          <div className="border-t border-white/10 p-3">
-            <button className="sidebar-action btn btn-ghost btn-sm w-full justify-start border-0" onClick={signOut} type="button">
+          <div className="border-t border-neutral-content/12 p-3">
+            <button
+              className="btn btn-ghost btn-sm w-full justify-start border-0 text-neutral-content/75 shadow-none hover:bg-neutral-content/10 hover:text-neutral-content"
+              onClick={signOut}
+              type="button"
+            >
               <LogOut aria-hidden="true" size={17} />
               Sign out
             </button>

@@ -1,20 +1,16 @@
-import { LoaderCircle, Pencil, Plus, Server, Terminal, Trash2 } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { LoaderCircle, Pencil, Plus, Search, Terminal, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ApiClient } from "@/api/client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
-import { FormModal } from "@/components/ui/FormModal";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Notice } from "@/components/ui/Notice";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import {
-  VPS_ROLE_DETAILS,
-  VPS_ROLE_OPTIONS,
-  VPS_ROLE_REDROID
-} from "@/constants/vps";
+import { VpsFormModal } from "@/components/vps/VpsFormModal";
+import { VPS_ROLE_DETAILS, VPS_ROLE_OPTIONS } from "@/constants/vps";
 import { usePolling } from "@/hooks/usePolling";
 import type {
   UpdateVpsInput,
@@ -28,13 +24,10 @@ import { formatDateTime, messageForError } from "@/utils";
 type NoticeState = { tone: "success" | "error" | "info"; text: string };
 type Filters = { search: string; automation: string; role: string };
 
-const DEFAULT_SSH_PORT = 22;
-const DEFAULT_SSH_USERNAME = "root";
+const EMPTY_COUNT = 0;
 const FILTER_ALL = "all";
 const FILTER_AUTOMATION_DISABLED = "disabled";
 const FILTER_AUTOMATION_ENABLED = "enabled";
-const MAX_SSH_PORT = 65_535;
-const MIN_SSH_PORT = 1;
 const NEW_VPS_TARGET = "new";
 const VPS_POLL_INTERVAL_MS = 15_000;
 
@@ -83,17 +76,39 @@ function ActionButtons({
   return (
     <div aria-label={`Actions for ${name}`} className="join">
       <div className="tooltip" data-tip="Verify SSH">
-        <button aria-label={`Verify ${name}`} className="btn btn-square btn-sm join-item" disabled={busy} onClick={onVerify} type="button">
-          {busy ? <LoaderCircle aria-hidden="true" className="animate-spin" size={15} /> : <Terminal aria-hidden="true" size={15} />}
+        <button
+          aria-label={`Verify ${name}`}
+          className="btn btn-square btn-sm join-item"
+          disabled={busy}
+          onClick={onVerify}
+          type="button"
+        >
+          {busy ? (
+            <LoaderCircle aria-hidden="true" className="animate-spin" size={15} />
+          ) : (
+            <Terminal aria-hidden="true" size={15} />
+          )}
         </button>
       </div>
       <div className="tooltip" data-tip="Edit VPS">
-        <button aria-label={`Edit ${name}`} className="btn btn-square btn-sm join-item" disabled={busy} onClick={onEdit} type="button">
+        <button
+          aria-label={`Edit ${name}`}
+          className="btn btn-square btn-sm join-item"
+          disabled={busy}
+          onClick={onEdit}
+          type="button"
+        >
           <Pencil aria-hidden="true" size={15} />
         </button>
       </div>
       <div className="tooltip tooltip-left" data-tip="Delete VPS">
-        <button aria-label={`Delete ${name}`} className="btn btn-error btn-square btn-sm join-item" disabled={busy} onClick={onDelete} type="button">
+        <button
+          aria-label={`Delete ${name}`}
+          className="btn btn-error btn-soft btn-square btn-sm join-item"
+          disabled={busy}
+          onClick={onDelete}
+          type="button"
+        >
           <Trash2 aria-hidden="true" size={15} />
         </button>
       </div>
@@ -101,103 +116,186 @@ function ActionButtons({
   );
 }
 
-function VpsForm({
-  vps,
-  busy,
-  onCancel,
-  onSubmit
+function VpsFilterToolbar({
+  filters,
+  filtersActive,
+  filteredCount,
+  hasInventory,
+  onClear,
+  onChange,
+  totalCount
 }: {
-  vps: VpsResource | null;
-  busy: boolean;
-  onCancel: () => void;
-  onSubmit: (input: VpsFormInput) => void;
+  filters: Filters;
+  filtersActive: boolean;
+  filteredCount: number;
+  hasInventory: boolean;
+  onClear: () => void;
+  onChange: (next: Filters) => void;
+  totalCount: number;
 }) {
-  const [form, setForm] = useState({
-    name: vps?.name ?? "",
-    address: vps?.address ?? "",
-    port: vps?.port ?? DEFAULT_SSH_PORT,
-    username: vps?.username ?? DEFAULT_SSH_USERNAME,
-    role: vps?.role ?? VPS_ROLE_REDROID,
-    password: "",
-    watcherEnabled: vps?.watcherEnabled ?? true
-  });
-  const field = (key: keyof typeof form, value: string | number | boolean) =>
-    setForm((current) => ({ ...current, [key]: value }));
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onSubmit({
-      name: form.name,
-      address: form.address,
-      port: form.port,
-      username: form.username,
-      role: form.role,
-      ...(form.password ? { password: form.password } : {}),
-      watcherEnabled: form.watcherEnabled
-    });
-  }
-
   return (
-    <form className="grid gap-4 p-4" onSubmit={submit}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="form-control grid gap-1.5">
-          <span className="label-text font-bold">Name</span>
-          <input className="input input-bordered w-full" onChange={(event) => field("name", event.target.value)} required value={form.name} />
-        </label>
-        <label className="form-control grid gap-1.5">
-          <span className="label-text font-bold">Address</span>
-          <input className="input input-bordered w-full font-mono" onChange={(event) => field("address", event.target.value)} required value={form.address} />
-        </label>
-        <label className="form-control grid gap-1.5">
-          <span className="label-text font-bold">SSH port</span>
-          <input className="input input-bordered w-full font-mono" max={MAX_SSH_PORT} min={MIN_SSH_PORT} onChange={(event) => field("port", Number(event.target.value))} required type="number" value={form.port} />
-        </label>
-        <label className="form-control grid gap-1.5">
-          <span className="label-text font-bold">Username</span>
-          <input className="input input-bordered w-full" onChange={(event) => field("username", event.target.value)} required value={form.username} />
-        </label>
-        {vps === null ? (
-          <label className="form-control grid gap-1.5 sm:col-span-2">
-            <span className="label-text font-bold">Role</span>
-            <select
-              aria-label="VPS role"
-              className="select select-bordered w-full"
-              onChange={(event) => field("role", event.target.value)}
-              value={form.role}
-            >
-              {VPS_ROLE_OPTIONS.map((role) => (
-                <option key={role} value={role}>{VPS_ROLE_DETAILS[role].label}</option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <div className="grid gap-1.5 sm:col-span-2">
-            <span className="label-text font-bold">Role</span>
-            <div className="flex min-h-11 items-center rounded-lg border border-base-300 bg-base-200 px-3">
-              <StatusBadge value={VPS_ROLE_DETAILS[form.role].label} />
-            </div>
-          </div>
-        )}
-        <label className="form-control grid gap-1.5 sm:col-span-2">
-          <span className="label-text font-bold">{vps ? "New password" : "Password"}</span>
-          <input className="input input-bordered w-full" onChange={(event) => field("password", event.target.value)} required={!vps} type="password" value={form.password} />
-        </label>
-      </div>
-      <label className="flex min-h-12 items-center justify-between gap-4 rounded-lg border border-base-300 bg-base-200 px-3">
-        <span>
-          <strong className="block text-sm">Automation enabled</strong>
-          <span className="text-xs text-base-content/60">{VPS_ROLE_DETAILS[form.role].automation}</span>
-        </span>
-        <input checked={form.watcherEnabled} className="toggle toggle-success" onChange={(event) => field("watcherEnabled", event.target.checked)} type="checkbox" />
+    <div
+      aria-label="VPS filters"
+      className="grid gap-2.5 border-b border-base-300 bg-base-200/35 px-4 py-3 sm:grid-cols-2 sm:px-5 lg:grid-cols-[minmax(14rem,1fr)_10.5rem_12.5rem_auto]"
+    >
+      <label className="input input-sm flex w-full items-center gap-2">
+        <Search aria-hidden="true" className="shrink-0 text-base-content/45" size={14} />
+        <input
+          className="min-w-0 grow"
+          onChange={(event) => onChange({ ...filters, search: event.target.value })}
+          placeholder="Search VPS"
+          value={filters.search}
+        />
       </label>
-      <div className="flex justify-end gap-2 border-t border-base-300 pt-4">
-        <button className="btn" disabled={busy} onClick={onCancel} type="button">Cancel</button>
-        <button className="btn btn-primary" disabled={busy} type="submit">
-          {busy ? <LoaderCircle aria-hidden="true" className="animate-spin" size={16} /> : null}
-          Save
+      <select
+        aria-label="VPS role"
+        className="select select-sm w-full"
+        onChange={(event) => onChange({ ...filters, role: event.target.value })}
+        value={filters.role}
+      >
+        <option value={FILTER_ALL}>All roles</option>
+        {VPS_ROLE_OPTIONS.map((role) => (
+          <option key={role} value={role}>
+            {VPS_ROLE_DETAILS[role].label}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Automation state"
+        className="select select-sm w-full"
+        onChange={(event) => onChange({ ...filters, automation: event.target.value })}
+        value={filters.automation}
+      >
+        <option value={FILTER_ALL}>All automation states</option>
+        <option value={FILTER_AUTOMATION_ENABLED}>Automation enabled</option>
+        <option value={FILTER_AUTOMATION_DISABLED}>Automation disabled</option>
+      </select>
+      <div className="flex items-center justify-between gap-2 lg:justify-end">
+        {hasInventory ? (
+          <span className="text-xs font-semibold tabular-nums text-base-content/55">
+            {filteredCount}/{totalCount}
+          </span>
+        ) : null}
+        <button
+          className="btn btn-ghost btn-sm px-2.5"
+          disabled={!filtersActive}
+          onClick={onClear}
+          type="button"
+        >
+          Clear
         </button>
       </div>
-    </form>
+    </div>
+  );
+}
+
+function VpsList({
+  busyIds,
+  items,
+  onDelete,
+  onEdit,
+  onToggleAutomation,
+  onVerify
+}: {
+  busyIds: Set<number>;
+  items: VpsResource[];
+  onDelete: (vps: VpsResource) => void;
+  onEdit: (vps: VpsResource) => void;
+  onToggleAutomation: (vps: VpsResource, enabled: boolean) => void;
+  onVerify: (vps: VpsResource) => void;
+}) {
+  return (
+    <>
+      <div className="hidden overflow-x-auto md:block">
+        <table className="table table-sm min-w-[54rem]">
+          <thead>
+            <tr className="bg-base-200/70 text-[0.68rem] uppercase text-base-content/60">
+              <th className="px-5 py-3">VPS</th>
+              <th className="px-5 py-3">SSH endpoint</th>
+              <th className="px-5 py-3">Role</th>
+              <th className="px-5 py-3">Automation</th>
+              <th className="px-5 py-3">Updated</th>
+              <th className="px-5 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-base-300">
+            {items.map((vps) => (
+              <tr className="transition-colors hover:bg-info/6" key={vps.id}>
+                <td className="max-w-64 px-5 py-3.5 align-middle">
+                  <strong className="break-words">{vps.name}</strong>
+                </td>
+                <td className="max-w-64 px-5 py-3.5 align-middle">
+                  <span className="break-all font-mono text-xs text-base-content/75">
+                    {vps.username}@{vps.address}:{vps.port}
+                  </span>
+                </td>
+                <td className="px-5 py-3.5 align-middle">
+                  <StatusBadge value={VPS_ROLE_DETAILS[vps.role].label} />
+                </td>
+                <td className="px-5 py-3.5 align-middle">
+                  <input
+                    aria-label={`${vps.watcherEnabled ? "Disable" : "Enable"} automation for ${vps.name}`}
+                    checked={vps.watcherEnabled}
+                    className="toggle toggle-success toggle-sm"
+                    disabled={busyIds.has(vps.id)}
+                    onChange={(event) => onToggleAutomation(vps, event.target.checked)}
+                    type="checkbox"
+                  />
+                </td>
+                <td className="whitespace-nowrap px-5 py-3.5 align-middle text-xs text-base-content/60">
+                  {formatDateTime(vps.updatedAt)}
+                </td>
+                <td className="px-5 py-3.5 text-right align-middle">
+                  <ActionButtons
+                    busy={busyIds.has(vps.id)}
+                    name={vps.name}
+                    onDelete={() => onDelete(vps)}
+                    onEdit={() => onEdit(vps)}
+                    onVerify={() => onVerify(vps)}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="divide-y divide-base-300 md:hidden">
+        {items.map((vps) => (
+          <article className="px-4 py-4" key={vps.id}>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="break-words font-extrabold">{vps.name}</h2>
+                <StatusBadge value={VPS_ROLE_DETAILS[vps.role].label} />
+              </div>
+              <p className="mt-1 break-all font-mono text-xs text-base-content/60">
+                {vps.username}@{vps.address}:{vps.port}
+              </p>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-base-300 pt-3">
+              <label className="flex cursor-pointer items-center gap-2 text-xs font-bold">
+                <input
+                  aria-label={`${vps.watcherEnabled ? "Disable" : "Enable"} automation for ${vps.name}`}
+                  checked={vps.watcherEnabled}
+                  className="toggle toggle-success toggle-sm"
+                  disabled={busyIds.has(vps.id)}
+                  onChange={(event) => onToggleAutomation(vps, event.target.checked)}
+                  type="checkbox"
+                />
+                Automation
+              </label>
+              <ActionButtons
+                busy={busyIds.has(vps.id)}
+                name={vps.name}
+                onDelete={() => onDelete(vps)}
+                onEdit={() => onEdit(vps)}
+                onVerify={() => onVerify(vps)}
+              />
+            </div>
+          </article>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -213,23 +311,27 @@ export function VpsPage({ api }: { api: ApiClient }) {
   const [deleteTarget, setDeleteTarget] = useState<VpsResource | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const load = useCallback(async (showLoading = false) => {
-    if (showLoading) setLoading(true);
-    try {
-      setInventory(await api.listVps());
-      setError(null);
-    } catch (loadError) {
-      setError(messageForError(loadError, "Unable to load VPS inventory."));
-    } finally {
-      setLoading(false);
-    }
-  }, [api]);
+  const load = useCallback(
+    async (showLoading = false) => {
+      if (showLoading) setLoading(true);
+      try {
+        setInventory(await api.listVps());
+        setError(null);
+      } catch (loadError) {
+        setError(messageForError(loadError, "Unable to load VPS inventory."));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [api]
+  );
 
   useEffect(() => {
     void load(true);
   }, [load]);
   usePolling(() => void load(false), VPS_POLL_INTERVAL_MS);
 
+  const totalHosts = inventory?.vps.length ?? EMPTY_COUNT;
   const filtered = useMemo(
     () => (inventory?.vps ?? []).filter((vps) => matchesFilters(vps, filters)),
     [inventory, filters]
@@ -253,9 +355,15 @@ export function VpsPage({ api }: { api: ApiClient }) {
     setNotice(null);
     try {
       const { result } = await api.verifyVps(vps.id);
-      setNotice({ tone: result.success ? "success" : "error", text: `${vps.name}: ${verifySummary(result)}` });
+      setNotice({
+        tone: result.success ? "success" : "error",
+        text: `${vps.name}: ${verifySummary(result)}`
+      });
     } catch (verifyError) {
-      setNotice({ tone: "error", text: messageForError(verifyError, `Unable to verify ${vps.name}.`) });
+      setNotice({
+        tone: "error",
+        text: messageForError(verifyError, `Unable to verify ${vps.name}.`)
+      });
     } finally {
       setBusy(vps.id, false);
     }
@@ -288,7 +396,10 @@ export function VpsPage({ api }: { api: ApiClient }) {
       await api.updateVps(vps.id, { watcherEnabled: enabled });
       await load(false);
     } catch (toggleError) {
-      setNotice({ tone: "error", text: messageForError(toggleError, "Unable to update automation state.") });
+      setNotice({
+        tone: "error",
+        text: messageForError(toggleError, "Unable to update automation state.")
+      });
     } finally {
       setBusy(vps.id, false);
     }
@@ -303,11 +414,17 @@ export function VpsPage({ api }: { api: ApiClient }) {
       setDeleteTarget(null);
       await load(false);
     } catch (deleteError) {
-      setNotice({ tone: "error", text: messageForError(deleteError, `Unable to delete ${deleteTarget.name}.`) });
+      setNotice({
+        tone: "error",
+        text: messageForError(deleteError, `Unable to delete ${deleteTarget.name}.`)
+      });
     } finally {
       setDeleteBusy(false);
     }
   }
+
+  const editingVps = formTarget === null || formTarget === NEW_VPS_TARGET ? null : formTarget;
+  const formKey = formTarget === NEW_VPS_TARGET ? NEW_VPS_TARGET : (editingVps?.id ?? NEW_VPS_TARGET);
 
   return (
     <div className="min-w-0">
@@ -315,81 +432,68 @@ export function VpsPage({ api }: { api: ApiClient }) {
         actions={(
           <>
             <RefreshButton loading={loading} onClick={() => void load(true)} />
-            <button className="btn btn-primary btn-sm" onClick={() => setFormTarget(NEW_VPS_TARGET)} type="button">
-              <Plus aria-hidden="true" size={16} />VPS
+            <button
+              className="btn btn-primary btn-sm gap-1.5"
+              onClick={() => setFormTarget(NEW_VPS_TARGET)}
+              type="button"
+            >
+              <Plus aria-hidden="true" size={16} />
+              VPS
             </button>
           </>
         )}
-        eyebrow="Infrastructure"
+        description="Managed SSH hosts, role assignments, and automation watcher state."
         title="VPS Inventory"
       />
 
-      <div className="grid gap-3">
-        {notice ? <Notice onClose={() => setNotice(null)} tone={notice.tone}>{notice.text}</Notice> : null}
+      <div className="grid gap-5">
+        {notice ? (
+          <Notice onClose={() => setNotice(null)} tone={notice.tone}>
+            {notice.text}
+          </Notice>
+        ) : null}
         {error ? <ErrorAlert message={error} onRetry={() => void load(true)} /> : null}
 
-        <section aria-label="VPS filters" className="control-filterbar grid gap-2 border-y py-3 sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1fr)_10rem_12rem_auto]">
-          <label className="input input-bordered input-sm flex items-center gap-2">
-            <Server aria-hidden="true" className="text-base-content/50" size={15} />
-            <input className="min-w-0 grow" onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search VPS" value={filters.search} />
-          </label>
-          <select aria-label="VPS role" className="select select-bordered select-sm w-full" onChange={(event) => setFilters((current) => ({ ...current, role: event.target.value }))} value={filters.role}>
-            <option value={FILTER_ALL}>All roles</option>
-            {VPS_ROLE_OPTIONS.map((role) => (
-              <option key={role} value={role}>{VPS_ROLE_DETAILS[role].label}</option>
-            ))}
-          </select>
-          <select aria-label="Automation state" className="select select-bordered select-sm w-full" onChange={(event) => setFilters((current) => ({ ...current, automation: event.target.value }))} value={filters.automation}>
-            <option value={FILTER_ALL}>All automation states</option>
-            <option value={FILTER_AUTOMATION_ENABLED}>Automation enabled</option>
-            <option value={FILTER_AUTOMATION_DISABLED}>Automation disabled</option>
-          </select>
-          <button className="btn btn-ghost btn-sm justify-self-end px-2" disabled={!filtersActive} onClick={() => setFilters(emptyFilters)} type="button">Clear</button>
+        <section
+          aria-label="VPS inventory list"
+          className="card card-border overflow-hidden border-base-content/18 bg-base-100 shadow-xs"
+        >
+          <VpsFilterToolbar
+            filteredCount={filtered.length}
+            filters={filters}
+            filtersActive={filtersActive}
+            hasInventory={inventory !== null}
+            onChange={setFilters}
+            onClear={() => setFilters(emptyFilters)}
+            totalCount={totalHosts}
+          />
+
+          {loading && !inventory ? <LoadingBlock label="Loading VPS inventory" /> : null}
+          {inventory && filtered.length === EMPTY_COUNT ? (
+            <EmptyState detail="Adjust the filters or add a VPS." title="No VPS records match" />
+          ) : null}
+
+          {filtered.length > EMPTY_COUNT ? (
+            <VpsList
+              busyIds={busyIds}
+              items={filtered}
+              onDelete={setDeleteTarget}
+              onEdit={setFormTarget}
+              onToggleAutomation={(vps, enabled) => void toggleAutomation(vps, enabled)}
+              onVerify={(vps) => void verify(vps)}
+            />
+          ) : null}
         </section>
-
-        {loading && !inventory ? <LoadingBlock label="Loading VPS inventory" /> : null}
-        {inventory && filtered.length === 0 ? <EmptyState title="No VPS records match" detail="Adjust the filters or add a VPS." /> : null}
-
-        {filtered.length > 0 ? (
-          <>
-            <div className="control-panel hidden overflow-x-auto border bg-base-100 md:block">
-              <table className="control-table table table-sm min-w-[54rem]">
-                <thead><tr><th>VPS</th><th>SSH endpoint</th><th>Role</th><th>Automation</th><th>Updated</th><th className="text-right">Actions</th></tr></thead>
-                <tbody>
-                  {filtered.map((vps) => (
-                    <tr key={vps.id}>
-                      <td className="max-w-64"><strong className="break-words">{vps.name}</strong></td>
-                      <td className="max-w-64"><span className="break-all font-mono text-xs">{vps.username}@{vps.address}:{vps.port}</span></td>
-                      <td><StatusBadge value={VPS_ROLE_DETAILS[vps.role].label} /></td>
-                      <td><input aria-label={`${vps.watcherEnabled ? "Disable" : "Enable"} automation for ${vps.name}`} checked={vps.watcherEnabled} className="toggle toggle-success toggle-sm" disabled={busyIds.has(vps.id)} onChange={(event) => void toggleAutomation(vps, event.target.checked)} type="checkbox" /></td>
-                      <td className="whitespace-nowrap text-xs">{formatDateTime(vps.updatedAt)}</td>
-                      <td className="text-right"><ActionButtons busy={busyIds.has(vps.id)} name={vps.name} onDelete={() => setDeleteTarget(vps)} onEdit={() => setFormTarget(vps)} onVerify={() => void verify(vps)} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="grid gap-3 md:hidden">
-              {filtered.map((vps) => (
-                <article className="control-panel card border bg-base-100" key={vps.id}>
-                  <div className="card-body gap-3 p-4">
-                    <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="break-words font-bold">{vps.name}</h2><StatusBadge value={VPS_ROLE_DETAILS[vps.role].label} /></div><p className="mt-1 break-all font-mono text-xs text-base-content/60">{vps.username}@{vps.address}:{vps.port}</p></div>
-                    <div className="flex items-center justify-between gap-3 border-t border-base-300 pt-3">
-                      <label className="flex items-center gap-2 text-xs font-bold"><input aria-label={`${vps.watcherEnabled ? "Disable" : "Enable"} automation for ${vps.name}`} checked={vps.watcherEnabled} className="toggle toggle-success toggle-sm" disabled={busyIds.has(vps.id)} onChange={(event) => void toggleAutomation(vps, event.target.checked)} type="checkbox" />Automation</label>
-                      <ActionButtons busy={busyIds.has(vps.id)} name={vps.name} onDelete={() => setDeleteTarget(vps)} onEdit={() => setFormTarget(vps)} onVerify={() => void verify(vps)} />
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </>
-        ) : null}
       </div>
 
-      <FormModal onClose={() => setFormTarget(null)} open={formTarget !== null} title={formTarget === NEW_VPS_TARGET ? "Add VPS" : "Edit VPS"}>
-        {formTarget !== null ? <VpsForm busy={formBusy} key={formTarget === NEW_VPS_TARGET ? NEW_VPS_TARGET : formTarget.id} onCancel={() => setFormTarget(null)} onSubmit={(input) => void saveForm(input)} vps={formTarget === NEW_VPS_TARGET ? null : formTarget} /> : null}
-      </FormModal>
+      <VpsFormModal
+        busy={formBusy}
+        formKey={formKey}
+        onClose={() => setFormTarget(null)}
+        onSubmit={(input) => void saveForm(input)}
+        open={formTarget !== null}
+        vps={editingVps}
+      />
 
       <ConfirmDialog
         busy={deleteBusy}

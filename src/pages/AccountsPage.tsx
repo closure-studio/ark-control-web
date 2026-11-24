@@ -156,13 +156,13 @@ export function AccountsPage({
     formTarget === NEW_ACCOUNT_TARGET ? NEW_ACCOUNT_TARGET : (editingAccount?.id ?? NEW_ACCOUNT_TARGET);
 
   return (
-    <div className="accounts-page min-w-0">
+    <div className="min-w-0">
       <PageHeader
         actions={
           <>
             <RefreshButton loading={loading} onClick={() => void load()} />
             <button
-              className="btn btn-sm gap-1.5"
+              className="btn btn-sm gap-1.5 border-base-content/20 bg-base-100 hover:bg-base-300/60"
               onClick={() => setShowScript(true)}
               type="button"
             >
