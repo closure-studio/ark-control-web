@@ -289,7 +289,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
   const [runsLoading, setRunsLoading] = useState(false);
   const [releaseError, setReleaseError] = useState<string | null>(null);
   const [runsError, setRunsError] = useState<string | null>(null);
-  const [modalRun, setModalRun] = useState<HostRun | null>(null);
+  const [modalRunId, setModalRunId] = useState<number | null>(null);
   const [logCache, setLogCache] = useState<Record<number, RunLog>>({});
   const [logErrors, setLogErrors] = useState<Record<number, string>>({});
   const [loadingLogIds, setLoadingLogIds] = useState<Set<number>>(() => new Set());
@@ -310,38 +310,37 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
     return filteredRuns.find((run) => run.id === inspectedRunId) ?? filteredRuns[0];
   }, [filteredRuns, inspectedRunId]);
 
-  const fetchRunLog = useCallback(
-    async (run: HostRun) => {
-      requestedLogIdsRef.current.add(run.id);
+  const modalRun = modalRunId === null ? null : runs.find((run) => run.id === modalRunId) ?? null;
+
+  const fetchRunLog = useCallback(async (runId: number) => {
+    requestedLogIdsRef.current.add(runId);
+    setLoadingLogIds((current) => {
+      const next = new Set(current);
+      next.add(runId);
+      return next;
+    });
+    setLogErrors((current) => {
+      if (!(runId in current)) return current;
+      const next = { ...current };
+      delete next[runId];
+      return next;
+    });
+    try {
+      const response = await api.getRunLog(runId);
+      setLogCache((current) => ({ ...current, [runId]: response }));
+    } catch (error) {
+      setLogErrors((current) => ({
+        ...current,
+        [runId]: messageForError(error, "Unable to load run log.")
+      }));
+    } finally {
       setLoadingLogIds((current) => {
         const next = new Set(current);
-        next.add(run.id);
+        next.delete(runId);
         return next;
       });
-      setLogErrors((current) => {
-        if (!(run.id in current)) return current;
-        const next = { ...current };
-        delete next[run.id];
-        return next;
-      });
-      try {
-        const response = await api.getRunLog(run.id);
-        setLogCache((current) => ({ ...current, [run.id]: response }));
-      } catch (error) {
-        setLogErrors((current) => ({
-          ...current,
-          [run.id]: messageForError(error, "Unable to load run log.")
-        }));
-      } finally {
-        setLoadingLogIds((current) => {
-          const next = new Set(current);
-          next.delete(run.id);
-          return next;
-        });
-      }
-    },
-    [api]
-  );
+    }
+  }, [api]);
 
   const loadReleases = useCallback(
     async (showLoading = true) => {
@@ -374,6 +373,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
       try {
         const response = await api.listReleaseRuns(selectedId);
         setRuns(response.runs);
+        setModalRunId((id) => id !== null && response.runs.some((run) => run.id === id) ? id : null);
         setRunsError(null);
       } catch (error) {
         setRunsError(messageForError(error, "Unable to load release runs."));
@@ -390,7 +390,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
 
   useEffect(() => {
     setRuns([]);
-    setModalRun(null);
+    setModalRunId(null);
     setInspectedRunId(null);
     setRunFilter(RUN_FILTER_ALL);
     setRunQuery("");
@@ -403,7 +403,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
   useEffect(() => {
     if (viewMode !== VIEW_MODE_SPLIT || !inspectedRun) return;
     if (requestedLogIdsRef.current.has(inspectedRun.id)) return;
-    void fetchRunLog(inspectedRun);
+    void fetchRunLog(inspectedRun.id);
   }, [fetchRunLog, inspectedRun, viewMode]);
 
   usePolling(
@@ -411,7 +411,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
       void loadRuns(false);
       void loadReleases(false);
       if (inspectedRun && ACTIVE_RUN_STATUSES.has(inspectedRun.status)) {
-        void fetchRunLog(inspectedRun);
+        void fetchRunLog(inspectedRun.id);
       }
     },
     RELEASE_POLL_INTERVAL_MS,
@@ -424,8 +424,8 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
 
   function openLogModal(run: HostRun) {
     setInspectedRunId(run.id);
-    setModalRun(run);
-    void fetchRunLog(run);
+    setModalRunId(run.id);
+    void fetchRunLog(run.id);
   }
 
   function inspectRunFromMatrix(run: HostRun) {
@@ -510,7 +510,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
                 onClearFilters={clearFilters}
                 onInspectFromMatrix={inspectRunFromMatrix}
                 onOpenLogModal={openLogModal}
-                onRefreshLog={(target) => void fetchRunLog(target)}
+                onRefreshLog={(target) => void fetchRunLog(target.id)}
                 onRetryRuns={() => void loadRuns(true)}
                 onSelectRun={(target) => setInspectedRunId(target.id)}
                 runsCount={runs.length}
@@ -540,8 +540,8 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
         error={modalRun ? (logErrors[modalRun.id] ?? null) : null}
         loading={modalRun !== null && loadingLogIds.has(modalRun.id)}
         log={modalRun ? (logCache[modalRun.id] ?? null) : null}
-        onClose={() => setModalRun(null)}
-        onRefresh={() => (modalRun ? void fetchRunLog(modalRun) : undefined)}
+        onClose={() => setModalRunId(null)}
+        onRefresh={() => (modalRun ? void fetchRunLog(modalRun.id) : undefined)}
         run={modalRun}
       />
     </div>
