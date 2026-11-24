@@ -161,6 +161,36 @@ describe("ReleasesPage", () => {
     expect(await screen.findByText("No host runs")).toBeInTheDocument();
   });
 
+  it.each([
+    { passRate: 67, release: releases[0], runs: runsRelease41 },
+    {
+      passRate: 0,
+      release: { ...releases[0], statusCounts: { running: 1, failed: 1 } },
+      runs: runsRelease41.slice(0, 2)
+    }
+  ])("exposes a $passRate% rollout value and Verified pass rate when runs exist", async ({ passRate, release, runs }) => {
+    vi.stubGlobal("fetch", createReleasesFetchMock({ releaseList: [release], getRuns: () => runs }));
+    render(<ReleasesPage api={createApiClient("test-token", vi.fn())} />);
+
+    const hero = within(await screen.findByRole("region", { name: release.apkFilename }));
+    const verified = within(hero.getByRole("button", { name: /^Verified/ }));
+    expect(verified.getByText(`${passRate}% pass rate`, { exact: true })).toBeInTheDocument();
+    expect(hero.getByRole("progressbar", { name: `${passRate}% rollout pass rate` }))
+      .toHaveAttribute("aria-valuenow", String(passRate));
+  });
+
+  it("announces No runs in both the rollout radial and Verified KPI for an empty release", async () => {
+    const release = { ...releases[1], statusCounts: {} };
+    vi.stubGlobal("fetch", createReleasesFetchMock({ releaseList: [release] }));
+    render(<ReleasesPage api={createApiClient("test-token", vi.fn())} />);
+
+    const hero = within(await screen.findByRole("region", { name: release.apkFilename }));
+    const verified = within(hero.getByRole("button", { name: /^Verified/ }));
+    expect.soft(hero.queryByRole("img", { name: "No runs" }), "rollout radial accessible name").toBeInTheDocument();
+    expect.soft(verified.queryByText("No runs", { exact: true }), "Verified detail").toBeInTheDocument();
+    expect(hero.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
   it("filters host runs from the release hero Failures metric", async () => {
     vi.stubGlobal("fetch", createReleasesFetchMock());
     render(<ReleasesPage api={createApiClient("test-token", vi.fn())} />);

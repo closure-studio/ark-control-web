@@ -38,8 +38,8 @@ async function tabTo(page: Page, target: Locator) {
   await expect(focused).toBeFocused();
 }
 
-async function sampleFocusColors(control: Locator) {
-  return control.evaluate((element) => {
+async function sampleControlColors(control: Locator, pseudo?: "::placeholder") {
+  return control.evaluate((element, pseudoElement) => {
     const icon = element.querySelector("svg");
     const sampleSizePx = 1;
     const canvas = document.createElement("canvas");
@@ -57,24 +57,26 @@ async function sampleFocusColors(control: Locator) {
       const [red, green, blue, alpha] = context.getImageData(0, 0, sampleSizePx, sampleSizePx).data;
       return { rgb: [red, green, blue] as const, alpha };
     };
-    // shortcut: flat backgrounds and an outward outline, sample rendered pixels if either changes.
+    // shortcut: flat backgrounds, sample rendered pixels if backgrounds become nonuniform.
     const surfaceLayers: string[] = [];
     for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
       surfaceLayers.unshift(getComputedStyle(ancestor).backgroundColor);
     }
     const style = getComputedStyle(element);
-    const buttonLayers = [...surfaceLayers, style.backgroundColor];
+    const labelStyle = pseudoElement ? getComputedStyle(element, pseudoElement) : style;
+    const controlLayers = [...surfaceLayers, style.backgroundColor];
     return {
       surface: sampleColor(...surfaceLayers).rgb,
-      fill: sampleColor(...buttonLayers).rgb,
-      label: sampleColor(...buttonLayers, style.color).rgb,
-      icon: sampleColor(...buttonLayers, icon ? getComputedStyle(icon).stroke : "transparent").rgb,
+      fill: sampleColor(...controlLayers).rgb,
+      label: sampleColor(...controlLayers, labelStyle.color).rgb,
+      labelOpacity: Number(labelStyle.opacity),
+      icon: sampleColor(...controlLayers, icon ? getComputedStyle(icon).stroke : "transparent").rgb,
       outline: sampleColor(...surfaceLayers, style.outlineColor).rgb,
       outlineAlpha: sampleColor(style.outlineColor).alpha,
       outlineStyle: style.outlineStyle,
       outlineWidth: Number.parseFloat(style.outlineWidth)
     };
-  });
+  }, pseudo);
 }
 
 const releases = [
@@ -291,6 +293,151 @@ for (const width of [320, 1280]) {
   });
 }
 
+test("workbench layout toggles retain their accessible names and pressed states at 390px", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page);
+  await page.goto("/releases");
+
+  const layout = page.getByRole("group", { name: "Workbench layout" });
+  const inspector = layout.getByRole("button", { name: "Inspector", exact: true });
+  const matrix = layout.getByRole("button", { name: "Matrix", exact: true });
+  await expect(layout).toBeVisible();
+  await expect(inspector.or(matrix)).toHaveCount(2);
+  await expect(inspector).toHaveAttribute("aria-pressed", "true");
+  await expect(matrix).toHaveAttribute("aria-pressed", "false");
+  await matrix.click();
+  await expect(matrix).toHaveAttribute("aria-pressed", "true");
+  await expect(inspector).toHaveAttribute("aria-pressed", "false");
+  await inspector.click();
+  await expect(inspector).toHaveAttribute("aria-pressed", "true");
+  await expect(matrix).toHaveAttribute("aria-pressed", "false");
+});
+
+test("timeline keeps keyboard focus outlines unclipped at 320px", async ({ page }) => {
+  const timelineReleaseCount = 5;
+  await page.setViewportSize({ width: 320, height: 844 });
+  const timelineReleases = Array.from({ length: timelineReleaseCount }, (_, index) => ({
+    ...releases[0], id: releases[0].id - index, apkFilename: `ark-production-release-${index + 1}-arm64.apk`
+  }));
+  await mockApi(page);
+  await page.route(/\/api\/releases(?:\?|$)/, (route) => route.fulfill({
+    json: { data: { releases: timelineReleases, pagination: { limit: 25, offset: 0, count: timelineReleases.length } } }
+  }));
+  await page.goto("/releases");
+
+  const timeline = page.getByRole("region", { name: "Release timeline" });
+  const cards = timeline.getByRole("button", { name: /ark-production-release-/ });
+  await expect(cards).toHaveCount(timelineReleaseCount);
+  const scrollport = cards.first().locator("..");
+  await expect(scrollport).toHaveCSS("overflow-y", /^(auto|scroll)$/);
+  expect(await scrollport.evaluate((element) => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0);
+
+  for (const card of [cards.first(), cards.last()]) {
+    await tabTo(page, card);
+    const { outlineStyle, outlineWidth, outlineAlpha } = await sampleControlColors(card);
+    expect(outlineStyle).not.toMatch(/^(none|hidden)$/);
+    expect(outlineWidth).toBeGreaterThan(0);
+    expect(outlineAlpha).toBeGreaterThan(0);
+
+    const clippedByPx = await card.evaluate((element) => {
+      const scrollport = element.parentElement!;
+      const cardBounds = element.getBoundingClientRect();
+      const scrollBounds = scrollport.getBoundingClientRect();
+      const { outlineWidth, outlineOffset } = getComputedStyle(element);
+      const outset = Math.max(0, Number.parseFloat(outlineWidth) + Number.parseFloat(outlineOffset));
+      const left = scrollBounds.left + scrollport.clientLeft;
+      const top = scrollBounds.top + scrollport.clientTop;
+      return outset + Math.max(
+        left - cardBounds.left,
+        top - cardBounds.top,
+        cardBounds.right - (left + scrollport.clientWidth),
+        cardBounds.bottom - (top + scrollport.clientHeight)
+      );
+    });
+    expect(clippedByPx).toBeLessThanOrEqual(SCROLL_TOLERANCE_PX);
+  }
+});
+
+for (const width of [768, 1024, 1280, 1586]) {
+  test(`VPS table fits and keeps the long hostname row's Delete button in view at ${width}px`, async ({ page }) => {
+    const longHost = vps[2];
+    await page.setViewportSize({ width, height: 900 });
+    await mockApi(page);
+    await page.goto("/vps");
+
+    const table = page.getByRole("table");
+    const row = table.getByRole("row").filter({ hasText: longHost.name });
+    await expect(row.getByText(`${longHost.username}@${longHost.address}:${longHost.port}`, { exact: true })).toBeVisible();
+    const wrapper = table.locator("..");
+    expect(await wrapper.evaluate((element) => element.scrollWidth - element.clientWidth))
+      .toBeLessThanOrEqual(SCROLL_TOLERANCE_PX);
+    const remove = row.getByRole("button", { name: `Delete ${longHost.name}`, exact: true });
+    await tabTo(page, remove);
+    await expect(remove).toBeInViewport({ ratio: 1 });
+  });
+}
+
+test("VPS search placeholder and table headers meet text contrast", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/vps");
+
+  const search = page.getByPlaceholder("Search VPS", { exact: true });
+  await expect(search).toBeVisible();
+  await expect(search).toHaveValue("");
+  const placeholder = await sampleControlColors(search, "::placeholder");
+  expect(placeholder.labelOpacity).toBe(1);
+  expect(contrastRatio(placeholder.label, placeholder.fill)).toBeGreaterThanOrEqual(WCAG_TEXT_CONTRAST_MINIMUM);
+
+  const headers = page.getByRole("table").getByRole("columnheader");
+  await expect(headers.first()).toBeVisible();
+  for (const header of await headers.all()) {
+    const colors = await sampleControlColors(header);
+    expect(contrastRatio(colors.label, colors.fill), await header.innerText()).toBeGreaterThanOrEqual(WCAG_TEXT_CONTRAST_MINIMUM);
+  }
+});
+
+test("account copy buttons enter the Tab order only when Space opens Connection details", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await mockApi(page);
+  await page.goto("/accounts");
+
+  const account = accounts[0];
+  const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name: account.name, exact: true }) });
+  const summaryName = "Connection details";
+  const summary = card.getByText(summaryName, { exact: true });
+  const details = summary.locator("..");
+  const indicatorState = () => summary.evaluate((element) => {
+    const chevron = element.querySelector("svg");
+    // Reading the legacy marker too lets this test isolate accessible-name regressions.
+    return chevron ? getComputedStyle(chevron).rotate : getComputedStyle(element, "::after").content;
+  });
+  const copyFields = ["project ID", "service account", "workload identity provider"];
+  await expect(summary).toBeVisible();
+  await tabTo(page, summary);
+  await expect(details).toHaveJSProperty("open", false);
+  const closedIndicator = await indicatorState();
+  await expect.soft(summary, "closed summary accessible name").toHaveAccessibleName(summaryName);
+  for (const button of await details.locator("button").all()) {
+    await expect(button).toBeHidden();
+  }
+  const enabled = card.getByRole("checkbox", { name: "Enabled", exact: true });
+  await page.keyboard.press("Tab");
+  await expect(enabled).toBeFocused();
+
+  await page.keyboard.press("Shift+Tab");
+  await expect(summary).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(details).toHaveJSProperty("open", true);
+  expect(await indicatorState(), "visible indicator changes under reduced motion").not.toBe(closedIndicator);
+  await expect.soft(summary, "open summary accessible name").toHaveAccessibleName(summaryName);
+  for (const field of copyFields) {
+    const copy = details.getByRole("button", { name: `Copy ${field} for ${account.name}`, exact: true });
+    await expect(copy).toBeVisible();
+    await page.keyboard.press("Tab");
+    await expect(copy).toBeFocused();
+  }
+});
+
 test("login shows the focus indicator on the token wrapper at 320px", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 480 });
   await mockApi(page, false);
@@ -304,7 +451,7 @@ test("login shows the focus indicator on the token wrapper at 320px", async ({ p
   await expect(tokenInput).toBeFocused();
   await expect(tokenInput).toHaveCSS("outline-style", "none");
 
-  const { outlineStyle, outlineWidth, outlineAlpha } = await sampleFocusColors(wrapper);
+  const { outlineStyle, outlineWidth, outlineAlpha } = await sampleControlColors(wrapper);
   expect(outlineStyle).not.toMatch(/^(none|hidden)$/);
   expect(outlineWidth).toBeGreaterThan(0);
   expect(outlineAlpha).toBeGreaterThan(0);
@@ -429,7 +576,7 @@ test.describe("core interactions", () => {
     for (const name of linkNames) {
       const link = navigation.getByRole("link", { name, exact: true });
       await tabTo(page, link);
-      const colors = await sampleFocusColors(link);
+      const colors = await sampleControlColors(link);
       expect.soft(colors.outlineStyle, `${name} outline style`).not.toMatch(/^(none|hidden)$/);
       expect.soft(colors.outlineWidth, `${name} outline width`).toBeGreaterThan(0);
       expect.soft(contrastRatio(colors.outline, colors.surface), `${name} outline contrast against sidebar`).toBeGreaterThanOrEqual(WCAG_NON_TEXT_CONTRAST_MINIMUM);
@@ -591,7 +738,7 @@ test.describe("core interactions", () => {
       await page.keyboard.press("Tab");
       await expect(button.and(page.locator(":focus-visible"))).toBeFocused();
 
-      const colors = await sampleFocusColors(button);
+      const colors = await sampleControlColors(button);
 
       if (hasLabel) {
         expect.soft(contrastRatio(colors.label, colors.fill), `${name} label contrast`).toBeGreaterThanOrEqual(WCAG_TEXT_CONTRAST_MINIMUM);
