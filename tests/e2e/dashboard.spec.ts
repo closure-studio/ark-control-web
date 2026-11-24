@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { HOST_RUN_STATUS } from "../../src/types";
 
 const LONG_CONTENT_REPEATS = 60;
+const MAX_KEYBOARD_TABS = 20;
 const SCROLL_TOLERANCE_PX = 1;
 const WCAG_TEXT_CONTRAST_MINIMUM = 4.5;
 const WCAG_NON_TEXT_CONTRAST_MINIMUM = 3;
@@ -27,6 +28,53 @@ function contrastRatio(foreground: Srgb, background: Srgb) {
   };
   const luminances = [relativeLuminance(foreground), relativeLuminance(background)];
   return (Math.max(...luminances) + wcagLuminanceOffset) / (Math.min(...luminances) + wcagLuminanceOffset);
+}
+
+async function tabTo(page: Page, target: Locator) {
+  const focused = target.and(page.locator(":focus-visible"));
+  for (let tabs = 0; tabs < MAX_KEYBOARD_TABS && !(await focused.count()); tabs++) {
+    await page.keyboard.press("Tab");
+  }
+  await expect(focused).toBeFocused();
+}
+
+async function sampleFocusColors(control: Locator) {
+  return control.evaluate((element) => {
+    const icon = element.querySelector("svg");
+    const sampleSizePx = 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = sampleSizePx;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Cannot sample focus colors");
+
+    // Let the browser resolve CSS color formats and composite translucent colors in sRGB.
+    const sampleColor = (...layers: string[]) => {
+      context.clearRect(0, 0, sampleSizePx, sampleSizePx);
+      for (const layer of layers) {
+        context.fillStyle = layer;
+        context.fillRect(0, 0, sampleSizePx, sampleSizePx);
+      }
+      const [red, green, blue, alpha] = context.getImageData(0, 0, sampleSizePx, sampleSizePx).data;
+      return { rgb: [red, green, blue] as const, alpha };
+    };
+    // shortcut: flat backgrounds and an outward outline, sample rendered pixels if either changes.
+    const surfaceLayers: string[] = [];
+    for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      surfaceLayers.unshift(getComputedStyle(ancestor).backgroundColor);
+    }
+    const style = getComputedStyle(element);
+    const buttonLayers = [...surfaceLayers, style.backgroundColor];
+    return {
+      surface: sampleColor(...surfaceLayers).rgb,
+      fill: sampleColor(...buttonLayers).rgb,
+      label: sampleColor(...buttonLayers, style.color).rgb,
+      icon: sampleColor(...buttonLayers, icon ? getComputedStyle(icon).stroke : "transparent").rgb,
+      outline: sampleColor(...surfaceLayers, style.outlineColor).rgb,
+      outlineAlpha: sampleColor(style.outlineColor).alpha,
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth)
+    };
+  });
 }
 
 const releases = [
@@ -211,6 +259,57 @@ for (const viewport of [
   });
 }
 
+for (const width of [320, 1280]) {
+  test(`dashboard keeps its tiles in order and long APK link reachable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const apkFilename = `arknights-hg-${"production".repeat(LONG_CONTENT_REPEATS)}.apk`;
+    const longRelease = { ...releases[0], apkFilename, finalUrl: new URL(apkFilename, releases[0].finalUrl).href };
+    const dashboardReleases = [longRelease, ...releases.slice(1)];
+    await mockApi(page);
+    await page.route(/\/api\/releases(?:\?|$)/, (route) => route.fulfill({
+      json: { data: { releases: dashboardReleases, pagination: { limit: 5, offset: 0, count: dashboardReleases.length } } }
+    }));
+    await page.goto("/dashboard");
+
+    const overview = page.getByRole("region", { name: "Control plane overview" });
+    const tileLabels = overview.getByText(/^(SSH host inventory|Managed VPS|Automation enabled|GCP accounts|Active runs|Recent releases|Recent operations)$/);
+    await expect(tileLabels).toHaveText([
+      "SSH host inventory", "Managed VPS", "Automation enabled", "GCP accounts", "Active runs",
+      "Recent releases", "Recent operations"
+    ]);
+    const recent = overview.getByRole("region", { name: "Recent releases" });
+    const openLongApk = page.getByRole("link", { name: `Open APK ${longRelease.apkFilename}`, exact: true });
+    const release = recent.getByRole("article").or(recent.getByRole("row")).filter({ has: openLongApk });
+    await expect(release.getByRole("img", { name: "6 host runs", exact: true })).toBeVisible();
+    const apk = release.locator(openLongApk);
+    await expect(apk).toBeVisible();
+    await expect.poll(() => page.evaluate(() =>
+      Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth
+    )).toBeLessThanOrEqual(SCROLL_TOLERANCE_PX);
+    await tabTo(page, apk);
+    await expect(apk).toBeInViewport({ ratio: 1 });
+  });
+}
+
+test("login shows the focus indicator on the token wrapper at 320px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 480 });
+  await mockApi(page, false);
+  await page.goto("/");
+
+  const tokenInput = page.getByLabel("Admin token");
+  const wrapper = page.locator(".input").filter({ has: tokenInput });
+  await tokenInput.blur();
+  await expect(wrapper).toHaveCSS("outline-style", /^(none|hidden)$/);
+  await tokenInput.focus();
+  await expect(tokenInput).toBeFocused();
+  await expect(tokenInput).toHaveCSS("outline-style", "none");
+
+  const { outlineStyle, outlineWidth, outlineAlpha } = await sampleFocusColors(wrapper);
+  expect(outlineStyle).not.toMatch(/^(none|hidden)$/);
+  expect(outlineWidth).toBeGreaterThan(0);
+  expect(outlineAlpha).toBeGreaterThan(0);
+});
+
 async function expectTerminalScrollsToEnd(dialog: Locator) {
   const box = dialog.locator(".modal-box");
   const viewport = dialog.getByRole("code").locator("xpath=ancestor::pre/..");
@@ -314,6 +413,28 @@ test.describe("mobile dialogs", () => {
 
 test.describe("core interactions", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("sidebar indicates the active link and gives every link a contrasting keyboard outline", async ({ page }) => {
+    await mockApi(page);
+    await page.goto("/dashboard");
+    await expect(page.getByRole("region", { name: "Control plane overview" })).toBeVisible();
+
+    const navigation = page.getByRole("navigation", { name: "Primary navigation" });
+    const activeLink = navigation.getByRole("link", { name: "Dashboard", exact: true });
+    await expect(activeLink).toHaveAttribute("aria-current", "page");
+    await expect(activeLink).toHaveCSS("text-decoration-line", /\bunderline\b/);
+
+    const linkNames = ["Dashboard", "VPS", "Accounts", "Releases"];
+    await expect(navigation.getByRole("link")).toHaveCount(linkNames.length);
+    for (const name of linkNames) {
+      const link = navigation.getByRole("link", { name, exact: true });
+      await tabTo(page, link);
+      const colors = await sampleFocusColors(link);
+      expect.soft(colors.outlineStyle, `${name} outline style`).not.toMatch(/^(none|hidden)$/);
+      expect.soft(colors.outlineWidth, `${name} outline width`).toBeGreaterThan(0);
+      expect.soft(contrastRatio(colors.outline, colors.surface), `${name} outline contrast against sidebar`).toBeGreaterThanOrEqual(WCAG_NON_TEXT_CONTRAST_MINIMUM);
+    }
+  });
 
   test("dashboard keeps its light theme and metric colors in dark mode", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "dark" });
@@ -470,40 +591,7 @@ test.describe("core interactions", () => {
       await page.keyboard.press("Tab");
       await expect(button.and(page.locator(":focus-visible"))).toBeFocused();
 
-      const colors = await button.evaluate((element) => {
-        const icon = element.querySelector("svg");
-        const sampleSizePx = 1;
-        const canvas = document.createElement("canvas");
-        canvas.width = canvas.height = sampleSizePx;
-        const context = canvas.getContext("2d");
-        if (!icon || !context) throw new Error("Cannot sample terminal button colors");
-
-        // Let the browser resolve CSS color formats and composite translucent colors in sRGB.
-        const sampleColor = (...layers: string[]) => {
-          context.clearRect(0, 0, sampleSizePx, sampleSizePx);
-          for (const layer of layers) {
-            context.fillStyle = layer;
-            context.fillRect(0, 0, sampleSizePx, sampleSizePx);
-          }
-          const [red, green, blue] = context.getImageData(0, 0, sampleSizePx, sampleSizePx).data;
-          return [red, green, blue] as const;
-        };
-        // shortcut: flat backgrounds and an outward outline, sample rendered pixels if either changes.
-        const surfaceLayers: string[] = [];
-        for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
-          surfaceLayers.unshift(getComputedStyle(ancestor).backgroundColor);
-        }
-        const style = getComputedStyle(element);
-        const buttonLayers = [...surfaceLayers, style.backgroundColor];
-        return {
-          surface: sampleColor(...surfaceLayers),
-          fill: sampleColor(...buttonLayers),
-          label: sampleColor(...buttonLayers, style.color),
-          icon: sampleColor(...buttonLayers, getComputedStyle(icon).stroke),
-          outline: sampleColor(...surfaceLayers, style.outlineColor),
-          outlineWidth: Number.parseFloat(style.outlineWidth)
-        };
-      });
+      const colors = await sampleFocusColors(button);
 
       if (hasLabel) {
         expect.soft(contrastRatio(colors.label, colors.fill), `${name} label contrast`).toBeGreaterThanOrEqual(WCAG_TEXT_CONTRAST_MINIMUM);

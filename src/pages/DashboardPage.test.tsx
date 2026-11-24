@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApiClient } from "@/api/client";
@@ -38,7 +38,8 @@ const operations = [
     }
   ];
 
-function apiResponse(input: RequestInfo | URL) {
+function apiResponse(input: RequestInfo | URL, fixtures = { accounts, vps, releases, operations, activeRunCount: 1 }) {
+  const { accounts, vps, releases, operations, activeRunCount } = fixtures;
   const path = String(input);
   let data: unknown;
   if (path.startsWith("/api/accounts")) data = { accounts };
@@ -54,11 +55,11 @@ function apiResponse(input: RequestInfo | URL) {
   }
   else if (path.startsWith("/api/vps")) data = { vps };
   else if (path.startsWith("/api/releases")) {
-    data = { releases, pagination: { limit: 5, offset: 0, count: 1 } };
+    data = { releases, pagination: { limit: 5, offset: 0, count: releases.length } };
   } else if (path.startsWith("/api/operations")) {
-    data = { operations, pagination: { limit: 10, offset: 0, count: 1, total: 1 } };
+    data = { operations, pagination: { limit: 10, offset: 0, count: operations.length, total: operations.length } };
   } else {
-    data = { runs: [], pagination: { limit: 1, offset: 0, count: 0, total: 1 } };
+    data = { runs: [], pagination: { limit: 1, offset: 0, count: 0, total: activeRunCount } };
   }
   return new Response(JSON.stringify({ data }), {
     headers: { "content-type": "application/json" },
@@ -93,6 +94,21 @@ describe("DashboardPage", () => {
     expect(screen.queryByText("Pending 0")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain("/api/dashboard");
+  });
+
+  it("shows empty dashboard states and a single refresh timestamp", async () => {
+    const emptyFixtures = { accounts: [], vps: [], releases: [], operations: [], activeRunCount: 0 };
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => apiResponse(input, emptyFixtures)));
+
+    renderDashboard();
+
+    const inventory = within(await screen.findByRole("region", { name: "SSH host inventory" }));
+    expect(inventory.getByText("0%", { exact: true })).toBeVisible();
+    expect(inventory.getByText("Automation coverage", { exact: true })).toHaveTextContent(/^0%\s*Automation coverage$/);
+    expect(inventory.getByText("Last APK", { exact: true }).parentElement).toHaveTextContent(/^Last APK\s*None$/);
+    expect(screen.getByText("No releases", { exact: true })).toBeVisible();
+    expect(screen.getByText("No cloud operations", { exact: true })).toBeVisible();
+    expect(screen.getAllByText(/\bUpdated\b/)).toHaveLength(1);
   });
 
   it("repairs scheduler alarms only when the administrator requests it", async () => {
