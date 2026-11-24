@@ -1,4 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+const LONG_CONTENT_REPEATS = 60;
+const SCROLL_TOLERANCE_PX = 1;
 
 const releases = [
   {
@@ -181,6 +184,107 @@ for (const viewport of [
     }
   });
 }
+
+async function expectTerminalScrollsToEnd(dialog: Locator) {
+  const box = dialog.locator(".modal-box");
+  const viewport = dialog.getByRole("code").locator("xpath=ancestor::pre/..");
+  await expect(viewport).toHaveCSS("overflow-x", /^(auto|scroll)$/);
+  const scroll = await viewport.evaluate((element) => {
+    const { clientWidth, scrollWidth } = element;
+    element.scrollLeft = scrollWidth;
+    return { clientWidth, scrollWidth, scrollLeft: element.scrollLeft };
+  });
+  expect(scroll.scrollWidth).toBeGreaterThan(scroll.clientWidth);
+  expect(scroll.scrollLeft).toBeGreaterThan(0);
+  expect(Math.abs(scroll.scrollLeft + scroll.clientWidth - scroll.scrollWidth)).toBeLessThanOrEqual(SCROLL_TOLERANCE_PX);
+
+  const bounds = await box.evaluate((element) => {
+    const { left, right, top, bottom } = element.getBoundingClientRect();
+    return {
+      left, right, top, bottom,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth
+    };
+  });
+  expect(bounds.left).toBeGreaterThanOrEqual(0);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth);
+  expect(bounds.top).toBeGreaterThanOrEqual(-SCROLL_TOLERANCE_PX);
+  expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight + SCROLL_TOLERANCE_PX);
+  expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth + SCROLL_TOLERANCE_PX);
+}
+
+test.describe("mobile dialogs", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("scrolls past a long delete title to confirm at 320×480", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 480 });
+    const account = { ...accounts[0], name: `Production-${"control-".repeat(LONG_CONTENT_REPEATS)}account` };
+    let deleted = false;
+    await mockApi(page);
+    await page.route("**/api/accounts", (route) =>
+      route.fulfill({ json: { data: { accounts: deleted ? [] : [account] } } })
+    );
+    await page.route(`**/api/accounts/${account.id}`, async (route) => {
+      deleted = route.request().method() === "DELETE";
+      await route.fulfill({ json: { data: { deleted } } });
+    });
+    await page.goto("/accounts");
+    await page.getByRole("button", { name: `Delete ${account.name}`, exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: `Delete ${account.name}` });
+    const box = dialog.locator(".modal-box");
+    const confirmation = dialog.getByRole("textbox", { name: /^Enter .* to continue$/ });
+    const submit = dialog.getByRole("button", { name: "Delete", exact: true });
+    await expect(box).toHaveCSS("overflow-y", /^(auto|scroll)$/);
+    await expect(submit).toBeDisabled();
+    await confirmation.scrollIntoViewIfNeeded();
+    await expect(confirmation).toBeInViewport({ ratio: 1 });
+    await confirmation.fill(account.name);
+    await expect(submit).toBeEnabled();
+    await submit.scrollIntoViewIfNeeded();
+    await expect(submit).toBeInViewport({ ratio: 1 });
+    expect(await box.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await submit.click();
+
+    await expect(page.getByText(`${account.name} was deleted.`, { exact: true })).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: account.name, exact: true })).toHaveCount(0);
+  });
+
+  test("keeps a long Cloud Shell script line scrollable inside the modal", async ({ page }) => {
+    const token = `${"visual-test-token-".repeat(LONG_CONTENT_REPEATS)}end`;
+    await mockApi(page, false);
+    await page.addInitScript((value) => localStorage.setItem("ark-control-admin-token", value), token);
+    await page.goto("/accounts");
+    await page.getByRole("button", { name: "Cloud setup" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "Cloud Shell setup" });
+    await expect(dialog.getByRole("code")).toContainText(`ARK_CONTROL_ADMIN_TOKEN='${token}'`);
+    await expectTerminalScrollsToEnd(dialog);
+  });
+
+  test("keeps an unwrapped run log line scrollable inside the modal", async ({ page }) => {
+    const run = runs[0];
+    const line = `${"deployment-output-".repeat(LONG_CONTENT_REPEATS)}end`;
+    await mockApi(page);
+    await page.route(`**/api/host-runs/${run.id}/log`, (route) =>
+      route.fulfill({ json: { data: { lastLogTail: line, lastCheckedAt: run.lastCheckedAt, updatedAt: run.updatedAt } } })
+    );
+    await page.goto("/releases");
+    await page.getByRole("button").filter({ has: page.getByText(run.hostName, { exact: true }) }).click();
+    const inspector = page.getByRole("complementary", { name: `Diagnostic inspector for ${run.hostName}` });
+    await inspector.getByRole("button", { name: "Full terminal", exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: `Run log: ${run.hostName}` });
+    await expect(dialog.getByText(line, { exact: true })).toBeVisible();
+    const wrap = dialog.getByRole("button", { name: "Wrap", exact: true });
+    await wrap.click();
+    await expect(wrap).toHaveAttribute("aria-pressed", "false");
+    await expectTerminalScrollsToEnd(dialog);
+  });
+});
 
 test.describe("core interactions", () => {
   test.use({ viewport: { width: 1440, height: 900 } });

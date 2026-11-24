@@ -43,6 +43,43 @@ describe("AccountsPage", () => {
     expect(within(dialog).getByLabelText("Project ID")).toHaveValue(account.projectId);
   });
 
+  it("blocks account form dismissal until a pending save fails", async () => {
+    let rejectSave!: (reason: Error) => void;
+    const pendingSave = new Promise<Response>((_resolve, reject) => {
+      rejectSave = reject;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ data: { accounts: [account] } }))
+      .mockReturnValueOnce(pendingSave);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AccountsPage api={createApiClient("test-token", vi.fn())} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: `Edit ${account.name}` }));
+    const dialog = screen.getByRole("dialog", { name: "Edit GCP account" });
+    const dismissButtons = ["Close", "Close dialog", "Cancel"].map((name) =>
+      within(dialog).getByRole("button", { name })
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/accounts/${account.id}`,
+      expect.objectContaining({ method: "PATCH" })
+    );
+
+    for (const button of dismissButtons) {
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      expect(dialog).toBeInTheDocument();
+    }
+
+    rejectSave(new Error("Account save failed"));
+    expect(await screen.findByText("Account save failed")).toBeInTheDocument();
+    expect(dialog).toBeInTheDocument();
+    for (const button of dismissButtons) expect(button).toBeEnabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("embeds the active admin token into the Cloud Shell setup script and copies it", async () => {
     vi.stubGlobal(
       "fetch",

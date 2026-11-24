@@ -161,6 +161,27 @@ describe("ReleasesPage", () => {
     expect(await screen.findByText("No host runs")).toBeInTheDocument();
   });
 
+  it("filters host runs from the release hero Failures metric", async () => {
+    vi.stubGlobal("fetch", createReleasesFetchMock());
+    render(<ReleasesPage api={createApiClient("test-token", vi.fn())} />);
+    await screen.findByText("[11:25:00] helper running");
+
+    const hero = within(screen.getByRole("region", { name: releases[0].apkFilename }));
+    const failures = hero.getByRole("button", { name: /Failures/i });
+    const totalHosts = hero.getByRole("button", { name: /Total hosts/i });
+    expect(totalHosts).toHaveAttribute("aria-pressed", "true");
+    expect(failures).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(failures);
+
+    expect(failures).toHaveAttribute("aria-pressed", "true");
+    expect(totalHosts).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Attention/i })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText("[11:25:00] ERROR verification failed")).toBeInTheDocument();
+    expect(screen.queryByText("ark-vps-production-primary")).not.toBeInTheDocument();
+    expect(screen.queryByText("ark-vps-healthy-node")).not.toBeInTheDocument();
+  });
+
   it("uses an info badge for a running host and a success badge for its running AI review", async () => {
     vi.stubGlobal("fetch", createReleasesFetchMock());
     render(<ReleasesPage api={createApiClient("test-token", vi.fn())} />);
