@@ -1,50 +1,51 @@
 import type { ReactNode } from "react";
-
-const TONE_ICON_CLASSES = {
-  neutral: "border-info/35 bg-info/10 text-info",
-  success: "border-success/40 bg-success/10 text-success",
-  warning: "border-warning/45 bg-warning/10 text-warning",
-  error: "border-error/40 bg-error/10 text-error"
-} as const;
+import { cx } from "@/utils";
 
 const TONE_VALUE_CLASSES = {
-  neutral: "text-info",
+  neutral: "text-base-content",
+  muted: "text-base-content/50",
+  info: "text-info",
   success: "text-success",
   warning: "text-warning",
   error: "text-error"
 } as const;
 
-export function MetricCard({
-  icon,
-  label,
-  value,
-  detail,
-  tone = "neutral"
-}: {
-  icon: ReactNode;
+type MetricProps = {
+  icon?: ReactNode;
   label: string;
-  value: string;
+  value: number;
   detail: string;
-  tone?: "neutral" | "success" | "warning" | "error";
-}) {
+  tone?: keyof typeof TONE_VALUE_CLASSES;
+};
+
+export function MetricContent({ icon, label, value, detail, tone = "neutral" }: MetricProps) {
   return (
-    <article className="min-w-0 border-base-300 even:border-l [&:nth-child(n+3)]:border-t">
-      <div className="flex h-full flex-col gap-2.5 p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-bold text-base-content/55">{label}</span>
-          <span
-            className={`grid size-8 shrink-0 place-items-center rounded-field border ${TONE_ICON_CLASSES[tone]}`}
-          >
-            {icon}
-          </span>
-        </div>
-        <strong
-          className={`break-words text-[1.75rem] font-black leading-tight tabular-nums ${TONE_VALUE_CLASSES[tone]}`}
-        >
-          {value}
-        </strong>
-        <span className="text-[0.7rem] leading-4 text-base-content/55 sm:text-xs">{detail}</span>
-      </div>
+    <>
+      <span className="flex items-start justify-between gap-3">
+        <span className="stat-title text-xs font-bold wrap-anywhere whitespace-normal text-muted">
+          {label}
+        </span>
+        {icon ? <span className="shrink-0 text-muted">{icon}</span> : null}
+      </span>
+      <strong
+        className={cx(
+          "stat-value text-[1.75rem] leading-tight font-black wrap-anywhere whitespace-normal tabular-nums",
+          TONE_VALUE_CLASSES[tone]
+        )}
+      >
+        {value}
+      </strong>
+      <span className="stat-desc text-xs leading-4 wrap-anywhere whitespace-normal text-muted">
+        {detail}
+      </span>
+    </>
+  );
+}
+
+export function MetricCard(props: MetricProps) {
+  return (
+    <article className="flex min-w-0 flex-col gap-2.5 bg-base-100 p-5 sm:p-6">
+      <MetricContent {...props} />
     </article>
   );
 }

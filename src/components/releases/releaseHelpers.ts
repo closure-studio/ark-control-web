@@ -1,4 +1,5 @@
 import { CircleCheck, CircleX, Clock3, LoaderCircle, TimerOff, type LucideIcon } from "lucide-react";
+import { BADGE_TONE_CLASSES } from "@/components/ui/StatusBadge";
 import { HOST_RUN_STATUS, type HostRun, type HostRunStatus, type ReleaseSummary } from "@/types";
 
 export const EMPTY_COUNT = 0;
@@ -57,6 +58,7 @@ type HostRunTone = "success" | "info" | "warning" | "error";
 // Tailwind needs literal class names to generate the styles.
 const RUN_TONE_STYLES: {
   [Tone in HostRunTone]: {
+    tone: Tone;
     barClassName: `bg-${Tone}`;
     badgeClassName: `badge-${Tone}`;
     textClassName: `text-${Tone}`;
@@ -64,26 +66,30 @@ const RUN_TONE_STYLES: {
   };
 } = {
   success: {
+    tone: "success",
     barClassName: "bg-success",
-    badgeClassName: "badge-success",
+    badgeClassName: BADGE_TONE_CLASSES.success,
     textClassName: "text-success",
     stepClassName: "step-success"
   },
   info: {
+    tone: "info",
     barClassName: "bg-info",
-    badgeClassName: "badge-info",
+    badgeClassName: BADGE_TONE_CLASSES.info,
     textClassName: "text-info",
     stepClassName: "step-info"
   },
   warning: {
+    tone: "warning",
     barClassName: "bg-warning",
-    badgeClassName: "badge-warning",
+    badgeClassName: BADGE_TONE_CLASSES.warning,
     textClassName: "text-warning",
     stepClassName: "step-warning"
   },
   error: {
+    tone: "error",
     barClassName: "bg-error",
-    badgeClassName: "badge-error",
+    badgeClassName: BADGE_TONE_CLASSES.error,
     textClassName: "text-error",
     stepClassName: "step-error"
   }
@@ -163,22 +169,22 @@ export const RELEASE_HEALTH_META: Record<
 > = {
   [RELEASE_HEALTH_HEALTHY]: {
     label: "All verified",
-    badgeClassName: "border-success/30 bg-success/10 text-success",
+    badgeClassName: BADGE_TONE_CLASSES.success,
     radialClassName: "text-success"
   },
   [RELEASE_HEALTH_ACTIVE]: {
     label: "Deploying",
-    badgeClassName: "border-info/30 bg-info/10 text-info",
+    badgeClassName: BADGE_TONE_CLASSES.info,
     radialClassName: "text-info"
   },
   [RELEASE_HEALTH_ATTENTION]: {
     label: "Needs attention",
-    badgeClassName: "border-error/30 bg-error/10 text-error",
+    badgeClassName: BADGE_TONE_CLASSES.error,
     radialClassName: "text-error"
   },
   [RELEASE_HEALTH_EMPTY]: {
     label: "No runs",
-    badgeClassName: "border-base-300 bg-base-200 text-base-content/60",
+    badgeClassName: BADGE_TONE_CLASSES.ghost,
     radialClassName: "text-base-content/35"
   }
 };

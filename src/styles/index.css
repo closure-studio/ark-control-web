@@ -99,6 +99,20 @@
   border-radius: var(--radius-box);
 }
 
+@utility console-table {
+  & :where(thead, tbody) > tr > :where(th, td) {
+    @apply px-5;
+  }
+
+  & > thead > tr > th {
+    @apply bg-base-200/70 py-3 text-[0.68rem] uppercase text-base-content/60;
+  }
+
+  & > tbody > tr > td {
+    @apply py-3.5;
+  }
+}
+
 @utility glass-chrome {
   --glass-chrome-color: var(--color-base-100);
   background: var(--glass-chrome-color);

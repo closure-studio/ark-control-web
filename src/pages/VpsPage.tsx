@@ -7,6 +7,7 @@ import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Notice } from "@/components/ui/Notice";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { VpsFormModal } from "@/components/vps/VpsFormModal";
@@ -207,32 +208,32 @@ function VpsList({
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="table table-sm min-w-[54rem]">
+        <table className="table table-sm console-table min-w-[54rem]">
           <thead>
-            <tr className="bg-base-200/70 text-[0.68rem] uppercase text-base-content/60">
-              <th className="px-5 py-3">VPS</th>
-              <th className="px-5 py-3">SSH endpoint</th>
-              <th className="px-5 py-3">Role</th>
-              <th className="px-5 py-3">Automation</th>
-              <th className="px-5 py-3">Updated</th>
-              <th className="px-5 py-3 text-right">Actions</th>
+            <tr>
+              <th>VPS</th>
+              <th>SSH endpoint</th>
+              <th>Role</th>
+              <th>Automation</th>
+              <th>Updated</th>
+              <th className="text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-base-300">
             {items.map((vps) => (
               <tr className="transition-colors hover:bg-info/6" key={vps.id}>
-                <td className="max-w-64 px-5 py-3.5 align-middle">
+                <td className="max-w-64 align-middle">
                   <strong className="break-words">{vps.name}</strong>
                 </td>
-                <td className="max-w-64 px-5 py-3.5 align-middle">
+                <td className="max-w-64 align-middle">
                   <span className="break-all font-mono text-xs text-base-content/75">
                     {vps.username}@{vps.address}:{vps.port}
                   </span>
                 </td>
-                <td className="px-5 py-3.5 align-middle">
+                <td className="align-middle">
                   <StatusBadge value={VPS_ROLE_DETAILS[vps.role].label} />
                 </td>
-                <td className="px-5 py-3.5 align-middle">
+                <td className="align-middle">
                   <input
                     aria-label={`${vps.watcherEnabled ? "Disable" : "Enable"} automation for ${vps.name}`}
                     checked={vps.watcherEnabled}
@@ -242,10 +243,10 @@ function VpsList({
                     type="checkbox"
                   />
                 </td>
-                <td className="whitespace-nowrap px-5 py-3.5 align-middle text-xs text-base-content/60">
+                <td className="whitespace-nowrap align-middle text-xs text-base-content/60">
                   {formatDateTime(vps.updatedAt)}
                 </td>
-                <td className="px-5 py-3.5 text-right align-middle">
+                <td className="text-right align-middle">
                   <ActionButtons
                     busy={busyIds.has(vps.id)}
                     name={vps.name}
@@ -454,10 +455,7 @@ export function VpsPage({ api }: { api: ApiClient }) {
         ) : null}
         {error ? <ErrorAlert message={error} onRetry={() => void load(true)} /> : null}
 
-        <section
-          aria-label="VPS inventory list"
-          className="card card-border overflow-hidden border-base-content/18 bg-base-100 shadow-xs"
-        >
+        <Panel aria-label="VPS inventory list">
           <VpsFilterToolbar
             filteredCount={filtered.length}
             filters={filters}
@@ -483,7 +481,7 @@ export function VpsPage({ api }: { api: ApiClient }) {
               onVerify={(vps) => void verify(vps)}
             />
           ) : null}
-        </section>
+        </Panel>
       </div>
 
       <VpsFormModal

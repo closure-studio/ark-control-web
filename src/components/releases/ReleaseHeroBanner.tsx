@@ -9,7 +9,7 @@ import {
   LoaderCircle,
   RefreshCw
 } from "lucide-react";
-import type { CSSProperties } from "react";
+import type { ComponentProps, CSSProperties } from "react";
 import { useCopyFeedback } from "@/components/accounts/useCopyFeedback";
 import { StatusRail } from "@/components/StatusRail";
 import {
@@ -30,6 +30,9 @@ import {
   type ReleaseHealth,
   type RunFilter
 } from "@/components/releases/releaseHelpers";
+import { MetricContent } from "@/components/ui/MetricCard";
+import { Panel } from "@/components/ui/Panel";
+import { STATUS_BADGE_BASE_CLASS_NAME } from "@/components/ui/StatusBadge";
 import type { ReleaseSummary } from "@/types";
 import { cx, formatDateTime } from "@/utils";
 
@@ -72,48 +75,38 @@ export function ReleaseHeroBanner({
     "--thickness": "5px"
   };
 
-  const kpiCards: ReadonlyArray<{
-    filter: RunFilter;
-    label: string;
-    value: number;
-    hint: string;
-    valueTone: string;
-  }> = [
+  const kpiCards: ReadonlyArray<ComponentProps<typeof MetricContent> & { filter: RunFilter }> = [
     {
       filter: RUN_FILTER_ALL,
       label: "Total hosts",
       value: summary.total,
-      hint: "Target fleet",
-      valueTone: "text-base-content"
+      detail: "Target fleet"
     },
     {
       filter: RUN_FILTER_SUCCEEDED,
       label: "Verified",
       value: summary.succeeded,
-      hint: `${summary.passRate}% pass rate`,
-      valueTone: HOST_RUN_PRESENTATION[RUN_FILTER_SUCCEEDED].textClassName
+      detail: `${summary.passRate}% pass rate`,
+      tone: HOST_RUN_PRESENTATION[RUN_FILTER_SUCCEEDED].tone
     },
     {
       filter: RUN_FILTER_ACTIVE,
       label: "In progress",
       value: summary.active,
-      hint: `${summary.running} running · ${summary.pending} queued`,
-      valueTone: "text-info"
+      detail: `${summary.running} running · ${summary.pending} queued`,
+      tone: "info"
     },
     {
       filter: RUN_FILTER_ATTENTION,
       label: "Failures",
       value: summary.attention,
-      hint: `${summary.failed} failed · ${summary.timedOut} timed out`,
-      valueTone: summary.attention > EMPTY_COUNT ? "text-error" : "text-base-content/50"
+      detail: `${summary.failed} failed · ${summary.timedOut} timed out`,
+      tone: summary.attention > EMPTY_COUNT ? "error" : "muted"
     }
   ];
 
   return (
-    <section
-      aria-labelledby="release-runs-title"
-      className="card card-border overflow-hidden border-base-content/18 bg-base-100 shadow-xs"
-    >
+    <Panel aria-labelledby="release-runs-title">
       <div className="grid gap-5 p-5 sm:p-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] xl:items-center">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
           <div
@@ -130,16 +123,11 @@ export function ReleaseHeroBanner({
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={cx(
-                  "inline-flex items-center gap-1 rounded-field border px-2 py-0.5 text-[0.7rem] font-bold",
-                  healthMeta.badgeClassName
-                )}
-              >
+              <span className={cx(STATUS_BADGE_BASE_CLASS_NAME, healthMeta.badgeClassName)}>
                 <HealthIcon aria-hidden="true" size={12} />
                 {healthMeta.label}
               </span>
-              <span className="text-xs font-bold tabular-nums text-base-content/55">
+              <span className="font-mono text-xs font-bold tabular-nums text-base-content/55">
                 Release #{release.id}
               </span>
               {parsed.arch ? (
@@ -150,7 +138,7 @@ export function ReleaseHeroBanner({
             </div>
 
             <h2
-              className="mt-2 break-words text-xl font-black leading-snug text-base-content sm:text-2xl"
+              className="mt-2 break-words font-mono text-xl font-black leading-snug text-base-content sm:text-2xl"
               id="release-runs-title"
             >
               {release.apkFilename}
@@ -205,29 +193,16 @@ export function ReleaseHeroBanner({
               <button
                 aria-pressed={active}
                 className={cx(
-                  "flex flex-col items-start rounded-box border p-3.5 text-left transition-all",
+                  "flex min-w-0 flex-col gap-1.5 rounded-box border p-3.5 text-left transition-colors",
                   active
-                    ? "border-info bg-info/8 shadow-2xs"
+                    ? "border-info bg-info/8"
                     : "border-base-300 bg-base-200/35 hover:border-base-content/30 hover:bg-base-200/60"
                 )}
                 key={item.filter}
                 onClick={() => onSelectFilter(item.filter)}
                 type="button"
               >
-                <span className="text-[0.7rem] font-bold uppercase text-base-content/55">
-                  {item.label}
-                </span>
-                <strong
-                  className={cx(
-                    "mt-1 text-2xl font-black leading-none tabular-nums",
-                    item.valueTone
-                  )}
-                >
-                  {item.value}
-                </strong>
-                <span className="mt-1.5 text-[0.68rem] leading-tight text-base-content/55">
-                  {item.hint}
-                </span>
+                <MetricContent detail={item.detail} label={item.label} tone={item.tone} value={item.value} />
               </button>
             );
           })}
@@ -245,6 +220,6 @@ export function ReleaseHeroBanner({
         </div>
         <StatusRail compact counts={release.statusCounts} showEmptyStatuses={false} />
       </div>
-    </section>
+    </Panel>
   );
 }

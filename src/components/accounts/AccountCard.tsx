@@ -78,7 +78,7 @@ export function AccountCard({
   return (
     <article
       className={cx(
-        "card card-border flex flex-col justify-between overflow-hidden border-base-content/18 bg-base-100 shadow-xs transition-colors hover:border-base-content/30",
+        "surface flex flex-col justify-between overflow-hidden transition-colors hover:border-base-content/30",
         !account.enabled && "bg-base-200/35",
         busy && "border-info/55"
       )}

@@ -75,25 +75,23 @@ export function ReleaseTimelineStrip({
         </div>
       </div>
 
-      {loading && releases.length === EMPTY_COUNT ? (
-        <div className="card card-border border-base-content/18 bg-base-100 shadow-xs">
-          <LoadingBlock label="Loading releases" />
-        </div>
-      ) : null}
-
-      {!loading && releases.length === EMPTY_COUNT ? (
-        <div className="card card-border border-base-content/18 bg-base-100 shadow-xs">
-          <EmptyState
-            detail="APK deployments will appear here once recorded."
-            title="No releases"
-          />
+      {releases.length === EMPTY_COUNT ? (
+        <div className="surface">
+          {loading ? (
+            <LoadingBlock label="Loading releases" />
+          ) : (
+            <EmptyState
+              detail="APK deployments will appear here once recorded."
+              title="No releases"
+            />
+          )}
         </div>
       ) : null}
 
       {releases.length > EMPTY_COUNT ? (
         <div
           className={cx(
-            "grid gap-3 p-0.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4",
+            "grid grid-cols-1 gap-3 p-0.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4",
             releases.length > TIMELINE_SCROLL_THRESHOLD && "scrollbar-thin max-h-72 overflow-y-auto"
           )}
         >
@@ -112,10 +110,8 @@ export function ReleaseTimelineStrip({
               <button
                 aria-pressed={selected}
                 className={cx(
-                  "card card-border flex flex-col justify-between gap-3 p-3.5 text-left transition-all",
-                  selected
-                    ? "border-info bg-base-100 shadow-sm ring-1 ring-info/35"
-                    : "border-base-content/14 bg-base-100/70 hover:border-base-content/30 hover:bg-base-100"
+                  "surface flex flex-col justify-between gap-3 p-3.5 text-left transition-colors",
+                  selected ? "border-primary" : "hover:border-base-content/30"
                 )}
                 key={release.id}
                 onClick={() => onSelect(release.id)}
@@ -135,14 +131,14 @@ export function ReleaseTimelineStrip({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs font-extrabold text-base-content">
+                      <span className="truncate font-mono text-xs font-extrabold text-base-content">
                         {parsed.version ?? `Release #${release.id}`}
                       </span>
-                      <span className="shrink-0 text-[0.6875rem] font-semibold tabular-nums text-base-content/45">
+                      <span className="shrink-0 font-mono text-[0.6875rem] font-semibold tabular-nums text-base-content/45">
                         #{release.id}
                       </span>
                     </div>
-                    <p className="mt-0.5 truncate text-[0.72rem] font-medium text-base-content/70">
+                    <p className="mt-0.5 truncate font-mono text-[0.72rem] font-medium text-base-content/70">
                       {release.apkFilename}
                     </p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-base-content/55">

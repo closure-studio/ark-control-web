@@ -1,5 +1,6 @@
 import { KeyRound, ShieldCheck } from "lucide-react";
 import { type FormEvent, useState } from "react";
+import { Panel } from "@/components/ui/Panel";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function LoginPage() {
@@ -13,11 +14,8 @@ export function LoginPage() {
 
   return (
     <main className="grid min-h-screen place-items-center bg-base-200 p-4">
-      <section
-        aria-labelledby="login-title"
-        className="card card-border w-full max-w-sm border-base-content/18 bg-base-100 shadow-sm"
-      >
-        <div className="card-body gap-6 p-6 sm:p-8">
+      <Panel aria-labelledby="login-title" className="w-full max-w-sm">
+        <div className="flex flex-col gap-6 p-6 text-sm sm:p-8">
           <div className="flex items-center gap-3">
             <div className="grid size-11 shrink-0 place-items-center rounded-field border border-base-content/25 bg-base-200/50 text-info shadow-2xs">
               <ShieldCheck aria-hidden="true" size={23} />
@@ -54,7 +52,7 @@ export function LoginPage() {
             </button>
           </form>
         </div>
-      </section>
+      </Panel>
     </main>
   );
 }

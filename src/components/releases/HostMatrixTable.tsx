@@ -20,15 +20,15 @@ export function HostMatrixTable({
   return (
     <>
       <div className="hidden overflow-x-auto lg:block">
-        <table className="table table-sm min-w-[60rem]">
+        <table className="table table-sm console-table min-w-[60rem]">
           <thead>
-            <tr className="bg-base-200/70 text-[0.68rem] uppercase text-base-content/60">
-              <th className="px-5 py-3">Host</th>
-              <th className="px-5 py-3">Status</th>
-              <th className="px-5 py-3">AI review</th>
-              <th className="px-5 py-3">Timing</th>
-              <th className="px-5 py-3">Diagnostics</th>
-              <th className="px-5 py-3 text-right">Actions</th>
+            <tr>
+              <th>Host</th>
+              <th>Status</th>
+              <th>AI review</th>
+              <th>Timing</th>
+              <th>Diagnostics</th>
+              <th className="text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-base-300">
@@ -41,7 +41,7 @@ export function HostMatrixTable({
 
               return (
                 <tr className="transition-colors hover:bg-info/6" key={run.id}>
-                  <td className="max-w-56 px-5 py-3.5 align-top">
+                  <td className="max-w-56 align-top">
                     <button
                       className="text-left hover:underline"
                       onClick={() => onInspect(run)}
@@ -53,10 +53,10 @@ export function HostMatrixTable({
                       {run.hostIp}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 align-top">
+                  <td className="align-top">
                     <HostRunBadge status={run.status} />
                   </td>
-                  <td className="max-w-72 px-5 py-3.5 align-top whitespace-normal">
+                  <td className="max-w-72 align-top whitespace-normal">
                     <StatusBadge value={run.lastAiStatus} />
                     {run.lastAiReason ? (
                       <p className="mt-1.5 break-words text-xs leading-5 text-base-content/70">
@@ -64,7 +64,7 @@ export function HostMatrixTable({
                       </p>
                     ) : null}
                   </td>
-                  <td className="whitespace-nowrap px-5 py-3.5 align-top text-xs text-base-content/65">
+                  <td className="whitespace-nowrap align-top text-xs text-base-content/65">
                     <div className="grid gap-1">
                       <span>Checked {formatDateTime(run.lastCheckedAt)}</span>
                       {elapsed ? (
@@ -79,7 +79,7 @@ export function HostMatrixTable({
                       ) : null}
                     </div>
                   </td>
-                  <td className="max-w-64 px-5 py-3.5 align-top whitespace-normal text-xs">
+                  <td className="max-w-64 align-top whitespace-normal text-xs">
                     {run.errorMessage ? (
                       <span className="flex items-start gap-1.5 font-medium text-error">
                         <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={13} />
@@ -89,7 +89,7 @@ export function HostMatrixTable({
                       <span className="text-base-content/45">No errors</span>
                     )}
                   </td>
-                  <td className="px-5 py-3.5 text-right align-top">
+                  <td className="text-right align-top">
                     <button
                       className="btn btn-sm gap-1.5 bg-base-100"
                       onClick={() => onOpenLog(run)}

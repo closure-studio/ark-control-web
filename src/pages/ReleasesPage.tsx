@@ -32,6 +32,8 @@ import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
+import { Panel } from "@/components/ui/Panel";
+import { BADGE_TONE_CLASSES, STATUS_BADGE_BASE_CLASS_NAME } from "@/components/ui/StatusBadge";
 import { usePolling } from "@/hooks/usePolling";
 import type { HostRun, ReleaseSummary, RunLog } from "@/types";
 import { cx, messageForError } from "@/utils";
@@ -444,7 +446,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
         actions={(
           <>
             {hasActiveRuns ? (
-              <span className="inline-flex h-8 items-center gap-1.5 rounded-field border border-info/30 bg-info/10 px-2.5 text-xs font-bold text-info">
+              <span className={cx(STATUS_BADGE_BASE_CLASS_NAME, "h-8 gap-1.5 px-2.5", BADGE_TONE_CLASSES.info)}>
                 <Activity aria-hidden="true" size={14} />
                 Live · {RELEASE_POLL_INTERVAL_SECONDS}s
               </span>
@@ -483,10 +485,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
               runsLoading={runsLoading}
             />
 
-            <section
-              aria-label="Host verification workbench"
-              className="card card-border overflow-hidden border-base-content/18 bg-base-100 shadow-xs"
-            >
+            <Panel aria-label="Host verification workbench">
               {runs.length > EMPTY_COUNT ? (
                 <WorkbenchToolbar
                   counts={filterCounts}
@@ -518,13 +517,10 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
                 runsLoading={runsLoading}
                 viewMode={viewMode}
               />
-            </section>
+            </Panel>
           </>
         ) : (
-          <section
-            aria-labelledby="release-runs-title"
-            className="card card-border border-base-content/18 bg-base-100 p-5 shadow-xs sm:p-6"
-          >
+          <Panel aria-labelledby="release-runs-title" className="p-5 sm:p-6">
             <h2 className="sr-only" id="release-runs-title">
               Host deployments
             </h2>
@@ -532,7 +528,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
               detail="Choose a release from the timeline to inspect host deployments."
               title="No release selected"
             />
-          </section>
+          </Panel>
         )}
       </div>
 

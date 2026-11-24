@@ -22,8 +22,9 @@ import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { Notice } from "@/components/ui/Notice";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Panel } from "@/components/ui/Panel";
 import { RefreshButton } from "@/components/ui/RefreshButton";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { BADGE_TONE_CLASSES, StatusBadge, STATUS_BADGE_BASE_CLASS_NAME } from "@/components/ui/StatusBadge";
 import { VPS_ROLE_ARKHOST, VPS_ROLE_REDROID } from "@/constants/vps";
 import { usePolling } from "@/hooks/usePolling";
 import type {
@@ -33,7 +34,7 @@ import type {
   ReleaseSummary,
   VpsResource
 } from "@/types";
-import { formatDateTime, messageForError } from "@/utils";
+import { cx, formatDateTime, messageForError } from "@/utils";
 
 const DASHBOARD_POLL_INTERVAL_MS = 15_000;
 const DASHBOARD_OPERATION_LIMIT = 10;
@@ -55,13 +56,13 @@ const HEALTH_STATES = {
     icon: Activity,
     label: "Verification in progress",
     detail: "Deployment checks are currently running",
-    className: "border-info/30 bg-info/10 text-info"
+    tone: "info"
   },
   healthy: {
     icon: CircleCheck,
     label: "Systems operational",
     detail: "No active release deployments",
-    className: "border-success/30 bg-success/10 text-success"
+    tone: "success"
   }
 } as const;
 
@@ -96,29 +97,23 @@ function DashboardOverview({ data }: { data: DashboardData }) {
   const lastProcessedApkFilename = data.recentReleases[0]?.apkFilename ?? null;
 
   return (
-    <section
-      aria-labelledby="control-plane-overview"
-      className="card card-border overflow-hidden border-base-content/18 bg-base-100 shadow-xs"
+    <Panel
+      header={{
+        id: "control-plane-overview",
+        title: "Control plane overview",
+        detail: `Updated ${formatDateTime(data.refreshedAt)}`,
+        action: (
+          <div className="basis-full sm:basis-auto">
+            <span className={cx(STATUS_BADGE_BASE_CLASS_NAME, "h-8 gap-2 px-3", BADGE_TONE_CLASSES[health.tone])}>
+              <HealthIcon aria-hidden="true" size={16} />
+              {health.label}
+            </span>
+          </div>
+        )
+      }}
     >
-      <div className="flex flex-col gap-3 border-b border-base-300 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div>
-          <h2 className="text-base font-extrabold" id="control-plane-overview">
-            Control plane overview
-          </h2>
-          <p className="mt-1 text-xs text-base-content/55">
-            Updated {formatDateTime(data.refreshedAt)}
-          </p>
-        </div>
-        <div
-          className={`inline-flex w-fit items-center gap-2 rounded-field border px-3 py-2 text-xs font-bold ${health.className}`}
-        >
-          <HealthIcon aria-hidden="true" size={16} />
-          {health.label}
-        </div>
-      </div>
-
       <div className="grid xl:grid-cols-[minmax(18rem,0.8fr)_minmax(0,1.2fr)]">
-        <div className="bg-success/[0.03] p-5 sm:p-6 xl:border-r xl:border-base-300">
+        <div className="p-5 sm:p-6 xl:border-r xl:border-base-300">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-bold text-base-content/55">SSH host inventory</p>
@@ -131,9 +126,7 @@ function DashboardOverview({ data }: { data: DashboardData }) {
                 </span>
               </p>
             </div>
-            <span className="grid size-11 shrink-0 place-items-center rounded-field border border-success/25 bg-success/10 text-success">
-              <Server aria-hidden="true" size={22} />
-            </span>
+            <Server aria-hidden="true" className="shrink-0 text-muted" size={22} />
           </div>
           <div
             aria-label={`${automationCoverage}% of managed VPS enabled for automation`}
@@ -158,32 +151,34 @@ function DashboardOverview({ data }: { data: DashboardData }) {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 border-t border-base-300 xl:border-t-0">
+        <div className="grid grid-cols-2 gap-px border-t border-base-300 bg-base-300 xl:border-t-0">
           <MetricCard
             detail={`${redroidCount} ReDroid · ${arkhostCount} ArkHost`}
             icon={<Server aria-hidden="true" size={18} />}
             label="Managed VPS"
-            value={String(data.vps.length)}
+            tone="info"
+            value={data.vps.length}
           />
           <MetricCard
             detail={`${automationCoverage}% fleet coverage`}
             icon={<RadioTower aria-hidden="true" size={18} />}
             label="Automation enabled"
             tone="success"
-            value={String(automationEnabledCount)}
+            value={automationEnabledCount}
           />
           <MetricCard
             detail={`${enabledAccountCount} enabled`}
             icon={<CloudCog aria-hidden="true" size={18} />}
             label="GCP accounts"
-            value={String(data.accounts.length)}
+            tone="info"
+            value={data.accounts.length}
           />
           <MetricCard
             detail="Release verification"
             icon={<PackageCheck aria-hidden="true" size={18} />}
             label="Active runs"
-            tone={data.activeRunCount > EMPTY_COUNT ? "warning" : "neutral"}
-            value={String(data.activeRunCount)}
+            tone={data.activeRunCount > EMPTY_COUNT ? "warning" : "info"}
+            value={data.activeRunCount}
           />
         </div>
       </div>
@@ -192,7 +187,9 @@ function DashboardOverview({ data }: { data: DashboardData }) {
         <OverviewMeta
           icon={<FileText aria-hidden="true" size={15} />}
           label="Last APK"
-          value={lastProcessedApkFilename ?? "None"}
+          value={lastProcessedApkFilename === null ? "None" : (
+            <span className="font-mono">{lastProcessedApkFilename}</span>
+          )}
         />
         <OverviewMeta
           icon={<Clock3 aria-hidden="true" size={15} />}
@@ -200,7 +197,7 @@ function DashboardOverview({ data }: { data: DashboardData }) {
           value={formatDateTime(data.refreshedAt)}
         />
       </div>
-    </section>
+    </Panel>
   );
 }
 
@@ -211,7 +208,7 @@ function OverviewMeta({
 }: {
   icon: ReactNode;
   label: string;
-  value: string;
+  value: ReactNode;
 }) {
   return (
     <div className="flex min-w-0 items-start gap-3 px-5 py-4 sm:px-6">
@@ -228,28 +225,25 @@ function OverviewMeta({
 
 function ReleaseActivity({ releases }: { releases: ReleaseSummary[] }) {
   return (
-    <section
-      aria-labelledby="recent-releases-title"
-      className="card card-border min-w-0 overflow-hidden border-base-content/18 bg-base-100 shadow-xs"
+    <Panel
+      header={{
+        id: "recent-releases-title",
+        title: "Recent releases",
+        action: <ActivityLink to="/releases">All releases</ActivityLink>
+      }}
     >
-      <SectionHeader
-        id="recent-releases-title"
-        linkLabel="All releases"
-        linkTo="/releases"
-        title="Recent releases"
-      />
       {releases.length === EMPTY_COUNT ? (
         <EmptyState detail="No APK releases have been recorded." title="No releases" />
       ) : (
         <>
           <div className="hidden overflow-x-auto md:block">
-            <table className="table table-sm min-w-[42rem]">
+            <table className="table table-sm console-table min-w-[42rem]">
               <thead>
-                <tr className="bg-base-200/75 text-[0.68rem] uppercase text-base-content/60">
-                  <th className="px-5 py-3">Release</th>
-                  <th className="px-5 py-3">Deployment health</th>
-                  <th className="px-5 py-3">Created</th>
-                  <th className="px-5 py-3">
+                <tr>
+                  <th>Release</th>
+                  <th>Deployment health</th>
+                  <th>Created</th>
+                  <th>
                     <span className="sr-only">Open APK</span>
                   </th>
                 </tr>
@@ -257,16 +251,16 @@ function ReleaseActivity({ releases }: { releases: ReleaseSummary[] }) {
               <tbody className="divide-y divide-base-300">
                 {releases.map((release) => (
                   <tr className="transition-colors hover:bg-info/6" key={release.id}>
-                    <td className="max-w-72 px-5 py-4 whitespace-normal">
-                      <strong className="break-words text-[0.8rem]">{release.apkFilename}</strong>
+                    <td className="max-w-72 whitespace-normal">
+                      <strong className="break-words font-mono text-[0.8rem]">{release.apkFilename}</strong>
                     </td>
-                    <td className="w-72 px-5 py-4">
+                    <td className="w-72">
                       <StatusRail compact counts={release.statusCounts} showEmptyStatuses={false} />
                     </td>
-                    <td className="whitespace-nowrap px-5 py-4 text-xs text-base-content/55">
+                    <td className="whitespace-nowrap text-xs text-base-content/55">
                       {formatDateTime(release.createdAt)}
                     </td>
-                    <td className="px-5 py-4 text-right">
+                    <td className="text-right">
                       <a
                         aria-label={`Open APK ${release.apkFilename}`}
                         className="btn btn-square btn-ghost btn-sm"
@@ -287,7 +281,7 @@ function ReleaseActivity({ releases }: { releases: ReleaseSummary[] }) {
               <article className="px-5 py-4" key={release.id}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="break-words text-sm font-extrabold leading-5">
+                    <h3 className="break-words font-mono text-sm font-extrabold leading-5">
                       {release.apkFilename}
                     </h3>
                     <p className="mt-1 text-xs text-base-content/55">
@@ -312,22 +306,19 @@ function ReleaseActivity({ releases }: { releases: ReleaseSummary[] }) {
           </div>
         </>
       )}
-    </section>
+    </Panel>
   );
 }
 
 function OperationActivity({ operations }: { operations: GcpOperation[] }) {
   return (
-    <section
-      aria-labelledby="recent-operations-title"
-      className="card card-border min-w-0 overflow-hidden border-base-content/18 bg-base-100 shadow-xs"
+    <Panel
+      header={{
+        id: "recent-operations-title",
+        title: "Recent operations",
+        action: <ActivityLink to="/vps">Open VPS</ActivityLink>
+      }}
     >
-      <SectionHeader
-        id="recent-operations-title"
-        linkLabel="Open VPS"
-        linkTo="/vps"
-        title="Recent operations"
-      />
       {operations.length === EMPTY_COUNT ? (
         <EmptyState title="No cloud operations" />
       ) : (
@@ -337,7 +328,7 @@ function OperationActivity({ operations }: { operations: GcpOperation[] }) {
           ))}
         </div>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -353,7 +344,7 @@ function OperationRow({ operation }: { operation: GcpOperation }) {
           <h3 className="break-words text-sm font-extrabold leading-5">
             {operation.instanceName}
           </h3>
-          <p className="mt-1 break-words text-xs text-base-content/55">{operation.projectId}</p>
+          <p className="mt-1 break-words font-mono text-xs text-base-content/55">{operation.projectId}</p>
         </div>
         <StatusBadge value={operation.status} />
       </div>
@@ -365,30 +356,15 @@ function OperationRow({ operation }: { operation: GcpOperation }) {
   );
 }
 
-function SectionHeader({
-  id,
-  title,
-  linkLabel,
-  linkTo
-}: {
-  id: string;
-  title: string;
-  linkLabel: string;
-  linkTo: string;
-}) {
+function ActivityLink({ to, children }: { to: string; children: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-base-300 px-5 py-4 sm:px-6">
-      <h2 className="text-base font-extrabold" id={id}>
-        {title}
-      </h2>
-      <Link
-        className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-info hover:underline"
-        to={linkTo}
-      >
-        {linkLabel}
-        <ArrowRight aria-hidden="true" size={14} />
-      </Link>
-    </div>
+    <Link
+      className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-info hover:underline"
+      to={to}
+    >
+      {children}
+      <ArrowRight aria-hidden="true" size={14} />
+    </Link>
   );
 }
 

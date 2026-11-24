@@ -1,4 +1,5 @@
 import { Code2, Plus } from "lucide-react";
+import { Panel } from "@/components/ui/Panel";
 
 export function AccountsEmptyState({
   onAddManual,
@@ -8,10 +9,7 @@ export function AccountsEmptyState({
   onOpenCloudSetup: () => void;
 }) {
   return (
-    <section
-      aria-labelledby="empty-accounts-heading"
-      className="card card-border border-base-content/18 bg-base-100 shadow-xs"
-    >
+    <Panel aria-labelledby="empty-accounts-heading">
       <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-start">
         <div>
           <h2
@@ -62,6 +60,6 @@ export function AccountsEmptyState({
           </div>
         </dl>
       </div>
-    </section>
+    </Panel>
   );
 }
