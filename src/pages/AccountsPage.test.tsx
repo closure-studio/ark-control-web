@@ -147,6 +147,78 @@ describe("AccountsPage", () => {
     expect(within(dialog).getByLabelText("Default zone")).toHaveValue("asia-east1-b");
   });
 
+  it("opens the Create VPS dialog with Equivalent code defaults and submits customized specs", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ data: { accounts: [account] } }))
+      .mockResolvedValueOnce(
+        Response.json({
+          data: {
+            vps: {
+              id: 42,
+              name: "ark-vps-custom",
+              address: "34.120.10.99",
+              port: 22,
+              username: "root",
+              role: "redroid",
+              watcherEnabled: true,
+              createdAt: "2026-07-14T12:00:00.000Z",
+              updatedAt: "2026-07-14T12:00:00.000Z"
+            },
+            operation: {
+              accountId: 7,
+              projectId: account.projectId,
+              zone: account.defaultZone,
+              instanceName: "ark-vps-custom",
+              action: "create",
+              status: "succeeded"
+            }
+          }
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const api = createApiClient("test-token", vi.fn());
+
+    render(<AccountsPage api={api} />);
+    await screen.findByRole("heading", { name: "Production account" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create VPS in Production account" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByLabelText("CPU cores (vCPU)")).toHaveValue(6);
+    expect(within(dialog).getByLabelText("Memory (GB)")).toHaveValue(16);
+    expect(within(dialog).getByLabelText("Boot disk size (GB)")).toHaveValue(100);
+    expect(within(dialog).getByText("n4a-custom-6-16384")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /Spot VM/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "16 vCPU" }));
+    expect(within(dialog).getByLabelText("Memory (GB)")).toHaveValue(32);
+    expect(within(dialog).getByText("n4a-custom-16-32768")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "8 vCPU" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "200 GB" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /Standard/i }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create VPS" }));
+
+    expect(
+      await screen.findByText("ark-vps-custom was created as a ReDroid host.")
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/accounts/7/vps",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          cpuCount: 8,
+          memoryGb: 32,
+          provisioningModel: "STANDARD",
+          diskSizeGb: 200
+        })
+      })
+    );
+  });
+
   it("surfaces API errors when loading or provisioning fails", async () => {
     const fetchMock = vi
       .fn()
@@ -164,6 +236,8 @@ describe("AccountsPage", () => {
     await screen.findByRole("heading", { name: "Production account" });
 
     fireEvent.click(screen.getByRole("button", { name: "Create VPS in Production account" }));
-    expect(await screen.findByText("Zone quota exhausted")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create VPS" }));
+    expect(await within(dialog).findByText("Zone quota exhausted")).toBeInTheDocument();
   });
 });

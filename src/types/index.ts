@@ -125,6 +125,15 @@ export type AccountInput = Pick<
   | "defaultZone"
 >;
 
+export type VpsProvisioningModel = "SPOT" | "STANDARD";
+
+export interface ProvisionVpsInput {
+  cpuCount: number;
+  memoryGb: number;
+  provisioningModel: VpsProvisioningModel;
+  diskSizeGb: number;
+}
+
 export interface VpsFormInput {
   name: string;
   address: string;

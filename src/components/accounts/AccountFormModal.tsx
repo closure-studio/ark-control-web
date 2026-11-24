@@ -1,4 +1,4 @@
-import { Cloud, Globe2, LoaderCircle, ShieldCheck } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import {
   COMMON_GCP_ZONES,
@@ -40,15 +40,12 @@ function AccountFormContent({
   }
 
   return (
-    <form className="grid gap-5 p-5" onSubmit={handleSubmit}>
-      <section className="grid gap-3.5">
-        <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-base-content/55">
-          <Cloud aria-hidden="true" className="text-info" size={14} />
-          <span>Project identity</span>
-        </div>
+    <form className="grid gap-6 p-5" onSubmit={handleSubmit}>
+      <section className="grid gap-3">
+        <h3 className="text-sm font-bold text-base-content">Project identity</h3>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="form-control grid gap-1.5">
-            <span className="label-text font-bold">Account name</span>
+            <span className="label-text text-xs font-semibold">Account name</span>
             <input
               className="input input-bordered w-full"
               onChange={(event) => updateField("name", event.target.value)}
@@ -58,7 +55,7 @@ function AccountFormContent({
             />
           </label>
           <label className="form-control grid gap-1.5">
-            <span className="label-text font-bold">Project ID</span>
+            <span className="label-text text-xs font-semibold">Project ID</span>
             <input
               className="input input-bordered w-full font-mono text-sm"
               onChange={(event) => updateField("projectId", event.target.value)}
@@ -70,13 +67,10 @@ function AccountFormContent({
         </div>
       </section>
 
-      <section className="grid gap-3.5 border-t border-base-300 pt-5">
-        <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-base-content/55">
-          <ShieldCheck aria-hidden="true" className="text-success" size={14} />
-          <span>Workload identity federation</span>
-        </div>
+      <section className="grid gap-3 border-t border-base-300 pt-5">
+        <h3 className="text-sm font-bold text-base-content">Workload identity federation</h3>
         <label className="form-control grid gap-1.5">
-          <span className="label-text font-bold">Service account</span>
+          <span className="label-text text-xs font-semibold">Service account</span>
           <input
             className="input input-bordered w-full font-mono text-sm"
             onChange={(event) => updateField("serviceAccountEmail", event.target.value)}
@@ -89,7 +83,7 @@ function AccountFormContent({
           </span>
         </label>
         <label className="form-control grid gap-1.5">
-          <span className="label-text font-bold">Workload identity provider</span>
+          <span className="label-text text-xs font-semibold">Workload identity provider</span>
           <input
             className="input input-bordered w-full font-mono text-sm"
             onChange={(event) => updateField("workloadIdentityProvider", event.target.value)}
@@ -103,15 +97,12 @@ function AccountFormContent({
         </label>
       </section>
 
-      <section className="grid gap-3.5 border-t border-base-300 pt-5">
-        <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide text-base-content/55">
-          <Globe2 aria-hidden="true" className="text-info" size={14} />
-          <span>Compute defaults</span>
-        </div>
+      <section className="grid gap-3 border-t border-base-300 pt-5">
+        <h3 className="text-sm font-bold text-base-content">Compute defaults</h3>
         <label className="form-control grid gap-1.5">
-          <span className="label-text font-bold">Default zone</span>
+          <span className="label-text text-xs font-semibold">Default zone</span>
           <input
-            className="input input-bordered w-full font-mono text-sm"
+            className="input input-bordered w-full text-sm"
             onChange={(event) => updateField("defaultZone", event.target.value)}
             placeholder="us-central1-c"
             required
@@ -119,16 +110,16 @@ function AccountFormContent({
           />
         </label>
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-xs font-semibold text-base-content/50">Quick pick:</span>
+          <span className="mr-1 text-xs text-base-content/55">Common zones:</span>
           {COMMON_GCP_ZONES.map((zone) => {
             const selected = form.defaultZone === zone;
             return (
               <button
                 className={cx(
-                  "accounts-zone-chip rounded-md border px-2 py-1 font-mono transition-colors",
+                  "accounts-preset-chip rounded border px-2 py-1 transition-colors duration-150",
                   selected
-                    ? "border-info/50 bg-info/12 text-info"
-                    : "border-base-300 bg-base-200/70 text-base-content/70 hover:border-info/40 hover:text-base-content"
+                    ? "border-info bg-base-100 text-info"
+                    : "border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40 hover:text-base-content"
                 )}
                 key={zone}
                 onClick={() => updateField("defaultZone", zone)}

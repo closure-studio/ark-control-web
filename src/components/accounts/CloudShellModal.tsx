@@ -1,4 +1,4 @@
-import { Check, Copy, KeyRound, ShieldAlert, Terminal } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { useMemo } from "react";
 import { hasEmbeddedAdminToken } from "@/components/accounts/accountHelpers";
 import { useCopyFeedback } from "@/components/accounts/useCopyFeedback";
@@ -9,19 +9,19 @@ import { cx } from "@/utils";
 const COPY_KEY_SCRIPT = "cloudShellScript";
 const SETUP_STEPS = [
   {
-    step: "1",
+    step: "1.",
     title: "Open Cloud Shell",
     detail: "Select the target GCP project in Google Cloud Console."
   },
   {
-    step: "2",
-    title: "Paste and execute",
+    step: "2.",
+    title: "Run the setup script",
     detail: "Configures IAM, OIDC Workload Identity, and registers via API."
   },
   {
-    step: "3",
+    step: "3.",
     title: "Refresh accounts",
-    detail: "Return here and refresh to start provisioning ReDroid hosts."
+    detail: "Return here and refresh to provision ReDroid hosts."
   }
 ] as const;
 
@@ -41,62 +41,39 @@ export function CloudShellModal({
 
   return (
     <FormModal onClose={onClose} open={open} title="Cloud Shell setup" width="max-w-4xl">
-      <div className="grid gap-4 p-5">
-        <ol className="grid gap-2.5 sm:grid-cols-3">
+      <div className="grid gap-5 p-5">
+        <ol className="grid gap-4 border-b border-base-300 pb-4 sm:grid-cols-3">
           {SETUP_STEPS.map((item) => (
-            <li
-              className="rounded-lg border border-base-300 bg-base-200/70 p-3.5"
-              key={item.step}
-            >
-              <div className="flex items-center gap-2">
-                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-info/15 text-[0.7rem] font-black text-info">
-                  {item.step}
-                </span>
-                <strong className="text-xs font-extrabold text-base-content">
-                  {item.title}
-                </strong>
+            <li className="grid gap-1" key={item.step}>
+              <div className="flex items-baseline gap-1.5 text-xs font-bold text-base-content">
+                <span className="tabular-nums text-info">{item.step}</span>
+                <span>{item.title}</span>
               </div>
-              <p className="mt-1.5 text-xs leading-5 text-base-content/60">
-                {item.detail}
-              </p>
+              <p className="text-xs leading-5 text-base-content/60">{item.detail}</p>
             </li>
           ))}
         </ol>
 
-        <div
-          className={cx(
-            "flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3.5 py-2.5 text-xs",
-            tokenEmbedded
-              ? "border-success/30 bg-success/10 text-base-content"
-              : "border-warning/35 bg-warning/10 text-base-content"
-          )}
-        >
-          <div className="flex items-center gap-2 font-semibold">
-            {tokenEmbedded ? (
-              <KeyRound aria-hidden="true" className="shrink-0 text-success" size={15} />
-            ) : (
-              <ShieldAlert aria-hidden="true" className="shrink-0 text-warning" size={15} />
-            )}
-            <span>
-              {tokenEmbedded
-                ? "Active session admin token is embedded for one-paste onboarding and unset on completion."
-                : "No session token provided — the script will prompt interactively for your admin token."}
-            </span>
-          </div>
-        </div>
+        <p className="text-xs leading-5 text-base-content/70">
+          <strong className="font-bold text-base-content">
+            {tokenEmbedded ? "Session token embedded." : "Interactive token prompt."}
+          </strong>{" "}
+          {tokenEmbedded
+            ? "Your active admin token is pre-filled and unset once registration completes."
+            : "Cloud Shell will ask for your admin token before registering the project."}
+        </p>
 
-        <div className="accounts-terminal overflow-hidden rounded-xl border border-base-content/20 bg-neutral text-neutral-content">
-          <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2.5">
-            <div className="flex items-center gap-2 text-xs font-semibold text-neutral-content/75">
-              <Terminal aria-hidden="true" className="text-info" size={14} />
-              <span className="font-mono">cloud-shell-setup.sh</span>
-            </div>
+        <div className="rounded-md border border-base-content/20 bg-neutral text-neutral-content">
+          <div className="flex items-center justify-between gap-3 border-b border-base-content/20 px-4 py-2.5">
+            <span className="text-xs font-semibold text-neutral-content/75">
+              cloud-shell-setup.sh
+            </span>
             <button
               className={cx(
-                "btn btn-xs gap-1.5 border-white/20",
+                "btn btn-xs gap-1.5",
                 copied
-                  ? "bg-success text-success-content"
-                  : "bg-white/10 text-neutral-content hover:bg-white/20"
+                  ? "btn-success"
+                  : "bg-base-100 text-base-content"
               )}
               onClick={() => void copyText(COPY_KEY_SCRIPT, script)}
               type="button"

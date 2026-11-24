@@ -6,6 +6,7 @@ import type {
   HostRun,
   HostRunListState,
   OperationsResponse,
+  ProvisionVpsInput,
   ReleasesResponse,
   RunLog,
   RunsResponse,
@@ -127,9 +128,10 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
       request<{ deleted: true }>(`/api/accounts/${id}`, {
         method: "DELETE"
       }),
-    provisionVps: (accountId: number) =>
+    provisionVps: (accountId: number, input: ProvisionVpsInput) =>
       request<{ vps: VpsResource; operation: GcpOperationResult }>(`/api/accounts/${accountId}/vps`, {
-        method: "POST"
+        method: "POST",
+        body: JSON.stringify(input)
       }),
     listVps: () => request<VpsInventoryResponse>("/api/vps"),
     createVps: (input: CreateVpsInput) =>

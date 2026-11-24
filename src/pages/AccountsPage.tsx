@@ -9,13 +9,14 @@ import {
   NEW_ACCOUNT_TARGET
 } from "@/components/accounts/accountHelpers";
 import { CloudShellModal } from "@/components/accounts/CloudShellModal";
+import { ProvisionVpsModal } from "@/components/accounts/ProvisionVpsModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { Notice } from "@/components/ui/Notice";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
-import type { AccountInput, GcpAccount } from "@/types";
+import type { AccountInput, GcpAccount, ProvisionVpsInput } from "@/types";
 import { messageForError } from "@/utils";
 
 type NoticeState = { tone: "success" | "error" | "info"; text: string };
@@ -37,6 +38,8 @@ export function AccountsPage({
   const [busyIds, setBusyIds] = useState<Set<number>>(() => new Set());
   const [deleteTarget, setDeleteTarget] = useState<GcpAccount | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [provisionTarget, setProvisionTarget] = useState<GcpAccount | null>(null);
+  const [provisionError, setProvisionError] = useState<string | null>(null);
   const [showScript, setShowScript] = useState(false);
 
   const load = useCallback(async () => {
@@ -106,20 +109,21 @@ export function AccountsPage({
     }
   }
 
-  async function provision(account: GcpAccount) {
+  async function provision(account: GcpAccount, input: ProvisionVpsInput) {
     setBusy(account.id, true);
+    setProvisionError(null);
     setNotice({ tone: "info", text: `Creating a VPS in ${account.name}.` });
     try {
-      const result = await api.provisionVps(account.id);
+      const result = await api.provisionVps(account.id, input);
+      setProvisionTarget(null);
       setNotice({
         tone: "success",
         text: `${result.vps.name} was created as a ReDroid host.`
       });
-    } catch (provisionError) {
-      setNotice({
-        tone: "error",
-        text: messageForError(provisionError, "Unable to create GCP VPS.")
-      });
+    } catch (provisionFailure) {
+      const message = messageForError(provisionFailure, "Unable to create GCP VPS.");
+      setProvisionError(message);
+      setNotice({ tone: "error", text: message });
     } finally {
       setBusy(account.id, false);
     }
@@ -176,7 +180,6 @@ export function AccountsPage({
           </>
         }
         description="Workload Identity Federation credentials, default compute zones, and one-click ReDroid VPS provisioning."
-        eyebrow="Cloud access"
         title="GCP Accounts"
       />
 
@@ -210,7 +213,10 @@ export function AccountsPage({
                 key={account.id}
                 onDelete={() => setDeleteTarget(account)}
                 onEdit={() => setFormTarget(account)}
-                onProvision={() => void provision(account)}
+                onProvision={() => {
+                  setProvisionError(null);
+                  setProvisionTarget(account);
+                }}
                 onToggle={(enabled) => void toggle(account, enabled)}
               />
             ))}
@@ -231,6 +237,21 @@ export function AccountsPage({
         adminToken={adminToken}
         onClose={() => setShowScript(false)}
         open={showScript}
+      />
+
+      <ProvisionVpsModal
+        account={provisionTarget}
+        busy={provisionTarget !== null && busyIds.has(provisionTarget.id)}
+        error={provisionError}
+        onClose={() => {
+          setProvisionError(null);
+          setProvisionTarget(null);
+        }}
+        onSubmit={(input) => {
+          if (provisionTarget) {
+            void provision(provisionTarget, input);
+          }
+        }}
       />
 
       <ConfirmDialog

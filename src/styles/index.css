@@ -404,54 +404,28 @@ textarea {
   line-height: 1.1;
 }
 
-.accounts-zone-chip {
+.accounts-preset-chip {
   font-size: 0.7rem;
   font-weight: 700;
   line-height: 1.2;
 }
 
-.accounts-stat-icon {
-  display: grid;
-  width: 2rem;
-  height: 2rem;
-  flex: none;
-  place-items: center;
-  border-radius: 0.5rem;
-  border: 1px solid transparent;
+.accounts-model-card {
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 
-.accounts-stat-icon-info {
-  border-color: color-mix(in oklch, var(--color-info) 30%, transparent);
-  background: color-mix(in oklch, var(--color-info) 10%, var(--color-base-100));
-  color: var(--color-info);
-}
-
-.accounts-stat-icon-success {
-  border-color: color-mix(in oklch, var(--color-success) 32%, transparent);
-  background: color-mix(in oklch, var(--color-success) 10%, var(--color-base-100));
-  color: var(--color-success);
+.accounts-model-card-active {
+  box-shadow: inset 0 0 0 1px var(--color-info);
 }
 
 .accounts-card {
-  border-color: color-mix(in oklch, var(--color-base-content) 15%, transparent);
-  box-shadow:
-    0 1px 2px color-mix(in oklch, var(--color-base-content) 6%, transparent),
-    0 8px 24px -18px color-mix(in oklch, var(--color-base-content) 22%, transparent);
+  border-color: color-mix(in oklch, var(--color-base-content) 18%, transparent);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--color-base-content) 7%, transparent);
 }
 
 .accounts-card:hover {
-  border-color: color-mix(in oklch, var(--color-info) 36%, var(--color-base-content) 12%);
-  box-shadow:
-    0 2px 6px color-mix(in oklch, var(--color-base-content) 7%, transparent),
-    0 14px 32px -18px color-mix(in oklch, var(--color-base-content) 26%, transparent);
-}
-
-.accounts-card-bar-active {
-  background: linear-gradient(
-    90deg,
-    var(--color-success),
-    color-mix(in oklch, var(--color-info) 75%, var(--color-success))
-  );
+  border-color: color-mix(in oklch, var(--color-base-content) 30%, transparent);
 }
 
 .accounts-card-disabled {
@@ -459,21 +433,7 @@ textarea {
 }
 
 .accounts-card-busy {
-  border-color: color-mix(in oklch, var(--color-info) 45%, transparent);
-}
-
-.accounts-card-icon-active {
-  border-color: color-mix(in oklch, var(--color-info) 28%, transparent);
-  background: linear-gradient(
-    135deg,
-    color-mix(in oklch, var(--color-info) 11%, var(--color-base-100)),
-    color-mix(in oklch, var(--color-success) 7%, var(--color-base-100))
-  );
-}
-
-.accounts-card-icon-muted {
-  border-color: color-mix(in oklch, var(--color-base-content) 16%, transparent);
-  background: var(--color-base-200);
+  border-color: color-mix(in oklch, var(--color-info) 55%, transparent);
 }
 
 .accounts-card-footer {
@@ -491,19 +451,6 @@ textarea {
 .accounts-code-value {
   overflow-wrap: anywhere;
   word-break: normal;
-}
-
-.accounts-empty-hero {
-  background: linear-gradient(
-    145deg,
-    var(--color-base-100),
-    color-mix(in oklch, var(--color-info) 4%, var(--color-base-100))
-  );
-  box-shadow: 0 1px 3px color-mix(in oklch, var(--color-base-content) 7%, transparent);
-}
-
-.accounts-terminal {
-  box-shadow: 0 10px 30px -14px color-mix(in oklch, var(--color-neutral) 50%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
