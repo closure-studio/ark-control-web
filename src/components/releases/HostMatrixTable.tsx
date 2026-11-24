@@ -1,4 +1,5 @@
 import { AlertTriangle, FileText } from "lucide-react";
+import { HostRunBadge } from "@/components/releases/HostRunBadge";
 import {
   ACTIVE_RUN_STATUSES,
   formatElapsedDuration
@@ -53,7 +54,7 @@ export function HostMatrixTable({
                     </span>
                   </td>
                   <td className="px-5 py-3.5 align-top">
-                    <StatusBadge value={run.status} />
+                    <HostRunBadge status={run.status} />
                   </td>
                   <td className="max-w-72 px-5 py-3.5 align-top whitespace-normal">
                     <StatusBadge value={run.lastAiStatus} />
@@ -115,7 +116,7 @@ export function HostMatrixTable({
                   {run.hostIp}
                 </p>
               </div>
-              <StatusBadge value={run.status} />
+              <HostRunBadge status={run.status} />
             </div>
             {run.lastAiReason ? (
               <p className="break-words text-xs leading-5 text-base-content/75">

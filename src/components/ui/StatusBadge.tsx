@@ -1,21 +1,28 @@
 import { cx } from "@/utils";
 
-const ERROR_STATUSES: ReadonlySet<string> = new Set(["error", "failed", "timed_out"]);
-const NEUTRAL_STATUSES: ReadonlySet<string> = new Set(["disabled", "skipped", "suspended", "terminated"]);
-const SUCCESS_STATUSES: ReadonlySet<string> = new Set(["enabled", "running", "succeeded", "success"]);
-const WARNING_STATUSES: ReadonlySet<string> = new Set(["pending", "provisioning", "staging", "stopping", "submitted"]);
+export const STATUS_BADGE_BASE_CLASS_NAME = "badge badge-sm badge-soft font-bold";
+
+const STATUS_BADGE_CLASSES: ReadonlyMap<string, string> = new Map([
+  ["enabled", "badge-success"],
+  ["running", "badge-success"],
+  ["succeeded", "badge-success"],
+  ["success", "badge-success"],
+  ["error", "badge-error"],
+  ["failed", "badge-error"],
+  ["timed_out", "badge-error"],
+  ["pending", "badge-warning"],
+  ["provisioning", "badge-warning"],
+  ["staging", "badge-warning"],
+  ["stopping", "badge-warning"],
+  ["submitted", "badge-warning"],
+  ["disabled", "badge-neutral"],
+  ["skipped", "badge-neutral"],
+  ["suspended", "badge-neutral"],
+  ["terminated", "badge-neutral"]
+]);
 
 export function StatusBadge({ value }: { value: string | null | undefined }) {
-  const status = (value ?? "unknown").toLowerCase();
-  const tone =
-    SUCCESS_STATUSES.has(status)
-      ? "badge-success"
-      : ERROR_STATUSES.has(status)
-        ? "badge-error"
-        : WARNING_STATUSES.has(status)
-          ? "badge-warning"
-          : NEUTRAL_STATUSES.has(status)
-            ? "badge-neutral"
-            : "badge-ghost";
-  return <span className={cx("badge badge-sm badge-soft font-bold", tone)}>{value ?? "Unknown"}</span>;
+  const label = value ?? "Unknown";
+  const tone = STATUS_BADGE_CLASSES.get(label.toLowerCase()) ?? "badge-ghost";
+  return <span className={cx(STATUS_BADGE_BASE_CLASS_NAME, tone)}>{label}</span>;
 }

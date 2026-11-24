@@ -6,11 +6,10 @@ import {
   formatReleaseRange,
   PAGE_SIZE,
   parseApkMetadata,
-  PERCENT_SCALE,
   RELEASE_HEALTH_META,
-  STATUS_BAR_SEGMENTS,
   summarizeReleaseCounts
 } from "@/components/releases/releaseHelpers";
+import { StatusBar } from "@/components/StatusRail";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import type { ReleaseSummary } from "@/types";
@@ -23,29 +22,6 @@ type RadialStyle = CSSProperties & {
   "--size": string;
   "--thickness": string;
 };
-
-function MiniStatusBar({ counts, total }: { counts: ReleaseSummary["statusCounts"]; total: number }) {
-  return (
-    <div
-      aria-label={`${total} host runs`}
-      className="flex h-1.5 w-full overflow-hidden rounded bg-base-300/80"
-      role="img"
-    >
-      {total > EMPTY_COUNT
-        ? STATUS_BAR_SEGMENTS.map((segment) => {
-            const value = counts[segment.key] ?? EMPTY_COUNT;
-            return value > EMPTY_COUNT ? (
-              <span
-                className={segment.className}
-                key={segment.key}
-                style={{ width: `${(value / total) * PERCENT_SCALE}%` }}
-              />
-            ) : null;
-          })
-        : null}
-    </div>
-  );
-}
 
 export function ReleaseTimelineStrip({
   loading,
@@ -196,7 +172,7 @@ export function ReleaseTimelineStrip({
                       ) : null}
                     </div>
                   </div>
-                  <MiniStatusBar counts={release.statusCounts} total={summary.total} />
+                  <StatusBar className="h-1.5 bg-base-300/80" counts={release.statusCounts} total={summary.total} />
                 </div>
               </button>
             );

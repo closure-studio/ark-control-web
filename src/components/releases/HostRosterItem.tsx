@@ -1,35 +1,13 @@
-import {
-  AlertTriangle,
-  CircleCheck,
-  CircleX,
-  Clock3,
-  FileText,
-  LoaderCircle,
-  TimerOff
-} from "lucide-react";
+import { AlertTriangle, FileText } from "lucide-react";
+import { HostRunBadge } from "@/components/releases/HostRunBadge";
 import {
   ATTENTION_RUN_STATUSES,
   formatElapsedDuration,
-  RUN_STATUS_FAILED,
-  RUN_STATUS_PENDING,
-  RUN_STATUS_RUNNING,
-  RUN_STATUS_SUCCEEDED,
-  RUN_STATUS_TIMED_OUT
+  HOST_RUN_PRESENTATION
 } from "@/components/releases/releaseHelpers";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import type { HostRun, HostRunStatus } from "@/types";
+import type { HostRun } from "@/types";
 import { cx, formatDateTime } from "@/utils";
-
-const RUN_STATUS_ICON: Record<
-  HostRunStatus,
-  { icon: typeof CircleCheck; className: string }
-> = {
-  [RUN_STATUS_SUCCEEDED]: { icon: CircleCheck, className: "text-success" },
-  [RUN_STATUS_RUNNING]: { icon: LoaderCircle, className: "animate-spin text-info" },
-  [RUN_STATUS_PENDING]: { icon: Clock3, className: "text-warning" },
-  [RUN_STATUS_FAILED]: { icon: CircleX, className: "text-error" },
-  [RUN_STATUS_TIMED_OUT]: { icon: TimerOff, className: "text-error" }
-};
 
 export function HostRosterItem({
   onOpenLog,
@@ -42,8 +20,7 @@ export function HostRosterItem({
   run: HostRun;
   selected: boolean;
 }) {
-  const statusVisual = RUN_STATUS_ICON[run.status];
-  const StatusIcon = statusVisual.icon;
+  const { icon: StatusIcon, iconAnimation, textClassName } = HOST_RUN_PRESENTATION[run.status];
   const isAttention = ATTENTION_RUN_STATUSES.has(run.status);
   const elapsed = formatElapsedDuration(run.startedAt, run.lastCheckedAt ?? run.updatedAt);
 
@@ -67,7 +44,7 @@ export function HostRosterItem({
         >
           <StatusIcon
             aria-hidden="true"
-            className={cx("mt-0.5 shrink-0", statusVisual.className)}
+            className={cx("mt-0.5 shrink-0", iconAnimation, textClassName)}
             size={16}
           />
           <div className="min-w-0 flex-1">
@@ -88,7 +65,7 @@ export function HostRosterItem({
         </button>
 
         <div className="flex shrink-0 items-center gap-2">
-          <StatusBadge value={run.status} />
+          <HostRunBadge status={run.status} />
           <button
             className="btn btn-sm gap-1.5 bg-base-100"
             onClick={() => onOpenLog(run)}

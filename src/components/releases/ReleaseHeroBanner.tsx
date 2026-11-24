@@ -15,6 +15,7 @@ import { StatusRail } from "@/components/StatusRail";
 import {
   APK_URL_COPY_KEY,
   EMPTY_COUNT,
+  HOST_RUN_PRESENTATION,
   parseApkMetadata,
   RELEASE_HEALTH_ACTIVE,
   RELEASE_HEALTH_ATTENTION,
@@ -90,7 +91,7 @@ export function ReleaseHeroBanner({
       label: "Verified",
       value: summary.succeeded,
       hint: `${summary.passRate}% pass rate`,
-      valueTone: "text-success"
+      valueTone: HOST_RUN_PRESENTATION[RUN_FILTER_SUCCEEDED].textClassName
     },
     {
       filter: RUN_FILTER_ACTIVE,

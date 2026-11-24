@@ -8,23 +8,35 @@ import {
   Terminal
 } from "lucide-react";
 import { useCopyFeedback } from "@/components/accounts/useCopyFeedback";
+import { HostRunBadge } from "@/components/releases/HostRunBadge";
 import {
   ACTIVE_RUN_STATUSES,
   EMPTY_COUNT,
   formatElapsedDuration,
   HOST_IP_COPY_KEY,
+  HOST_RUN_PRESENTATION,
   isErrorLogLine,
-  lifecycleStepsForRun,
   LOG_COPY_KEY,
   splitLogLines
 } from "@/components/releases/releaseHelpers";
 import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import type { HostRun, RunLog } from "@/types";
+import type { HostRun, HostRunStatus, RunLog } from "@/types";
 import { cx, formatDateTime } from "@/utils";
 
 const PREVIEW_MAX_LINES = 18;
+
+function RunLifecycle({ status }: { status: HostRunStatus }) {
+  const { lifecycle, stepClassName } = HOST_RUN_PRESENTATION[status];
+  return (
+    <ul className="steps steps-horizontal w-full text-xs font-semibold">
+      {lifecycle.map(({ label, reached }) => (
+        <li className={cx("step", reached && stepClassName)} key={label}>{label}</li>
+      ))}
+    </ul>
+  );
+}
 
 export function HostDiagnosticInspector({
   log,
@@ -46,7 +58,6 @@ export function HostDiagnosticInspector({
   const { copiedKey, copyText } = useCopyFeedback();
   const ipCopied = copiedKey === HOST_IP_COPY_KEY;
   const logCopied = copiedKey === LOG_COPY_KEY;
-  const steps = lifecycleStepsForRun(run.status);
   const isActive = ACTIVE_RUN_STATUSES.has(run.status);
   const elapsed = formatElapsedDuration(run.startedAt, run.lastCheckedAt ?? run.updatedAt);
   const rawLog = log?.lastLogTail ?? null;
@@ -63,7 +74,7 @@ export function HostDiagnosticInspector({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="break-words text-base font-black text-base-content">{run.hostName}</h3>
-            <StatusBadge value={run.status} />
+            <HostRunBadge status={run.status} />
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <code className="break-all text-xs text-base-content/65">{run.hostIp}</code>
@@ -94,13 +105,7 @@ export function HostDiagnosticInspector({
       </div>
 
       <div className="rounded-box border border-base-300 bg-base-200/35 px-3 py-3">
-        <ul className="steps steps-horizontal w-full text-xs font-semibold">
-          {steps.map((step) => (
-            <li className={cx("step", step.tone)} key={step.key}>
-              {step.label}
-            </li>
-          ))}
-        </ul>
+        <RunLifecycle status={run.status} />
       </div>
 
       <dl className="grid grid-cols-2 gap-2.5 text-xs">

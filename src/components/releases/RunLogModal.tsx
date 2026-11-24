@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useCopyFeedback } from "@/components/accounts/useCopyFeedback";
+import { HostRunBadge } from "@/components/releases/HostRunBadge";
 import {
   EMPTY_COUNT,
   isErrorLogLine,
@@ -214,7 +215,7 @@ export function RunLogModal({
       <div className="grid gap-3.5 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 pb-3">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <StatusBadge value={run?.status} />
+            {run && <HostRunBadge status={run.status} />}
             <span className="break-all font-mono text-xs text-base-content/65">
               {run?.hostIp}
             </span>

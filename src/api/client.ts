@@ -1,20 +1,23 @@
-import type {
-  AccountInput,
-  CreateVpsInput,
-  GcpAccount,
-  GcpOperationResult,
-  HostRun,
-  HostRunListState,
-  OperationsResponse,
-  ProvisionVpsInput,
-  ReleasesResponse,
-  RunLog,
-  RunsResponse,
-  SchedulerEnsureResponse,
-  UpdateVpsInput,
-  VerifyResult,
-  VpsInventoryResponse,
-  VpsResource
+import {
+  HOST_RUN_STATUSES,
+  type AccountInput,
+  type CreateVpsInput,
+  type GcpAccount,
+  type GcpOperationResult,
+  type HostRun,
+  type HostRunListState,
+  type HostRunStatus,
+  type OperationsResponse,
+  type ProvisionVpsInput,
+  type ReleaseSummary,
+  type ReleasesResponse,
+  type RunLog,
+  type RunsResponse,
+  type SchedulerEnsureResponse,
+  type UpdateVpsInput,
+  type VerifyResult,
+  type VpsInventoryResponse,
+  type VpsResource
 } from "@/types";
 
 const HTTP_UNAUTHORIZED = 401;
@@ -39,9 +42,74 @@ function isJsonObject(value: unknown): value is JsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function unwrapData<T>(body: unknown): T {
-  if (isJsonObject(body) && Object.hasOwn(body, "data")) return body.data as T;
-  return body as T;
+function unwrapData(body: unknown): unknown {
+  if (isJsonObject(body) && Object.hasOwn(body, "data")) return body.data;
+  return body;
+}
+
+function invalidHostRunResponse(httpStatus: number, field: string, rule: string): ApiError {
+  return new ApiError(
+    "invalid_response",
+    `${field} ${rule}. Allowed host-run statuses: ${HOST_RUN_STATUSES.join(", ")}.`,
+    httpStatus
+  );
+}
+
+function parseHostRunStatus(value: unknown, field: string, httpStatus: number): HostRunStatus {
+  const status = HOST_RUN_STATUSES.find((allowed) => allowed === value);
+  if (status === undefined) {
+    throw invalidHostRunResponse(httpStatus, field, "must be a recognized host-run status");
+  }
+  return status;
+}
+
+type RawRunList = { runs: (Omit<HostRun, "status"> & { status: unknown })[] };
+
+function parseRuns<T extends RawRunList>(body: unknown, httpStatus: number) {
+  const response = body as T;
+  if (!Array.isArray(response?.runs)) {
+    throw invalidHostRunResponse(httpStatus, "runs", "must be an array of host runs");
+  }
+  return {
+    ...response,
+    runs: response.runs.map((run, index) => ({
+      ...run,
+      status: parseHostRunStatus(run?.status, `runs[${index}].status`, httpStatus)
+    }))
+  };
+}
+
+function parseStatusCounts(value: unknown, field: string, httpStatus: number): ReleaseSummary["statusCounts"] {
+  if (!isJsonObject(value)) {
+    throw invalidHostRunResponse(httpStatus, field, "must be an object keyed by host-run status");
+  }
+  const counts: ReleaseSummary["statusCounts"] = {};
+  for (const [key, count] of Object.entries(value)) {
+    const status = parseHostRunStatus(key, `${field} key`, httpStatus);
+    if (typeof count !== "number" || !Number.isFinite(count) || count < 0) {
+      throw invalidHostRunResponse(httpStatus, `${field}.${status}`, "must be a finite, non-negative number");
+    }
+    counts[status] = count;
+  }
+  return counts;
+}
+
+type RawReleaseList = Omit<ReleasesResponse, "releases"> & {
+  releases: (Omit<ReleaseSummary, "statusCounts"> & { statusCounts: unknown })[];
+};
+
+function parseReleases(body: unknown, httpStatus: number): ReleasesResponse {
+  const response = body as RawReleaseList;
+  if (!Array.isArray(response?.releases)) {
+    throw invalidHostRunResponse(httpStatus, "releases", "must be an array of releases");
+  }
+  return {
+    ...response,
+    releases: response.releases.map((release, index) => ({
+      ...release,
+      statusCounts: parseStatusCounts(release?.statusCounts, `releases[${index}].statusCounts`, httpStatus)
+    }))
+  };
 }
 
 function parseApiError(body: unknown, status: number) {
@@ -76,7 +144,11 @@ async function parseJson(response: Response): Promise<unknown> {
 }
 
 export function createApiClient(token: string, onUnauthorized: () => void) {
-  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  async function request<T>(
+    path: string,
+    init: RequestInit = {},
+    parseData: (body: unknown, httpStatus: number) => T = (body) => body as T
+  ): Promise<T> {
     let response: Response;
     try {
       response = await fetch(path, {
@@ -107,7 +179,7 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
         apiError.details
       );
     }
-    return unwrapData<T>(body);
+    return parseData(unwrapData(body), response.status);
   }
 
   return {
@@ -151,12 +223,14 @@ export function createApiClient(token: string, onUnauthorized: () => void) {
     verifyVps: (id: number) =>
       request<{ result: VerifyResult }>(`/api/vps/${id}/verify`, { method: "POST" }),
     listReleases: (limit: number, offset: number) =>
-      request<ReleasesResponse>(`/api/releases?limit=${limit}&offset=${offset}`),
+      request(`/api/releases?limit=${limit}&offset=${offset}`, undefined, parseReleases),
     listReleaseRuns: (releaseId: number) =>
-      request<{ runs: HostRun[] }>(`/api/releases/${releaseId}/host-runs`),
+      request<{ runs: HostRun[] }>(`/api/releases/${releaseId}/host-runs`, undefined, parseRuns),
     listRuns: (state: HostRunListState, limit: number, offset: number) =>
       request<RunsResponse>(
-        `/api/host-runs?state=${state}&limit=${limit}&offset=${offset}`
+        `/api/host-runs?state=${state}&limit=${limit}&offset=${offset}`,
+        undefined,
+        parseRuns<RawRunList & Pick<RunsResponse, "pagination">>
       ),
     getRunLog: (runId: number) => request<RunLog>(`/api/host-runs/${runId}/log`),
     ensureSchedulerAlarms: () =>

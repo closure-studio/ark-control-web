@@ -10,6 +10,7 @@ import {
   ACTIVE_RUN_STATUSES,
   EMPTY_COUNT,
   FIRST_PAGE_OFFSET,
+  HOST_RUN_PRESENTATION,
   matchesRunFilter,
   PAGE_SIZE,
   RELEASE_POLL_INTERVAL_MS,
@@ -35,6 +36,7 @@ import { usePolling } from "@/hooks/usePolling";
 import type { HostRun, ReleaseSummary, RunLog } from "@/types";
 import { cx, messageForError } from "@/utils";
 
+const succeededPresentation = HOST_RUN_PRESENTATION[RUN_FILTER_SUCCEEDED];
 const FILTER_OPTIONS: ReadonlyArray<{
   key: RunFilter;
   label: string;
@@ -43,7 +45,7 @@ const FILTER_OPTIONS: ReadonlyArray<{
   { key: RUN_FILTER_ALL, label: "All", countTone: "text-base-content/55" },
   { key: RUN_FILTER_ATTENTION, label: "Attention", countTone: "text-error" },
   { key: RUN_FILTER_ACTIVE, label: "Active", countTone: "text-info" },
-  { key: RUN_FILTER_SUCCEEDED, label: "Succeeded", countTone: "text-success" }
+  { key: RUN_FILTER_SUCCEEDED, label: succeededPresentation.label, countTone: succeededPresentation.textClassName }
 ];
 
 function WorkbenchToolbar({
