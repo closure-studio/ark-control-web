@@ -3,14 +3,14 @@ import type { ReactNode } from "react";
 const TONE_ICON_CLASSES = {
   neutral: "border-info/35 bg-info/10 text-info",
   success: "border-success/40 bg-success/10 text-success",
-  warning: "border-accent/45 bg-accent/10 text-accent",
+  warning: "border-warning/45 bg-warning/10 text-warning",
   error: "border-error/40 bg-error/10 text-error"
 } as const;
 
 const TONE_VALUE_CLASSES = {
   neutral: "text-info",
   success: "text-success",
-  warning: "text-accent",
+  warning: "text-warning",
   error: "text-error"
 } as const;
 

@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           Skip to content
         </a>
-        <header className="app-topbar navbar sticky top-0 z-30 min-h-16 border-b border-base-content/12 bg-base-100/88 px-3 shadow-xs backdrop-blur-[18px] backdrop-saturate-125 sm:px-5">
+        <header className="app-topbar glass-chrome navbar sticky top-0 z-30 min-h-16 px-3 shadow-xs sm:px-5">
           <div className="navbar-start min-w-0 gap-2">
             <button
               aria-label="Open navigation"
