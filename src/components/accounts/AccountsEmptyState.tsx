@@ -10,7 +10,7 @@ export function AccountsEmptyState({
   return (
     <section
       aria-labelledby="empty-accounts-heading"
-      className="control-panel rounded-lg border bg-base-100"
+      className="card card-border border-base-content/18 bg-base-100 shadow-xs"
     >
       <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-start">
         <div>

@@ -63,17 +63,15 @@ export function CloudShellModal({
             : "Cloud Shell will ask for your admin token before registering the project."}
         </p>
 
-        <div className="min-w-0 overflow-hidden rounded-md border border-base-content/20 bg-neutral text-neutral-content">
-          <div className="flex items-center justify-between gap-3 border-b border-base-content/20 px-4 py-2.5">
+        <div className="min-w-0 overflow-hidden rounded-box border border-base-content/20 bg-neutral text-neutral-content">
+          <div className="flex items-center justify-between gap-3 border-b border-neutral-content/15 bg-black/15 px-4 py-2.5">
             <span className="truncate text-xs font-semibold text-neutral-content/75">
               cloud-shell-setup.sh
             </span>
             <button
               className={cx(
                 "btn btn-xs shrink-0 gap-1.5",
-                copied
-                  ? "btn-success"
-                  : "bg-base-100 text-base-content"
+                copied ? "btn-success" : "bg-base-100 text-base-content"
               )}
               onClick={() => void copyText(COPY_KEY_SCRIPT, script)}
               type="button"
@@ -82,7 +80,7 @@ export function CloudShellModal({
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
-          <pre className="control-code control-scrollbar max-h-72 w-full max-w-full overflow-auto p-4 text-xs leading-relaxed text-neutral-content">
+          <pre className="scrollbar-thin max-h-72 w-full max-w-full overflow-auto p-4 text-xs leading-relaxed whitespace-pre text-neutral-content [tab-size:2]">
             <code>{script}</code>
           </pre>
         </div>

@@ -272,10 +272,15 @@ test.describe("core interactions", () => {
 
     await page.getByRole("link", { name: "Releases", exact: true }).click();
     await expect(page).toHaveURL(/\/releases$/);
+    await page.getByRole("button", { name: /Attention/i }).click();
+    await expect(page.getByText("external-verification-host-with-long-name")).toBeVisible();
+    await expect(page.getByText("ark-vps-production-primary")).toHaveCount(0);
+    await page.getByRole("button", { name: /All/i }).click();
     await page.getByRole("button", { name: "Log", exact: true }).first().click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Run log: ark-vps-production-primary" })).toBeVisible();
     await expect(page.getByText("deployment running", { exact: false })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("desktop-run-log-dialog.png") });
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 

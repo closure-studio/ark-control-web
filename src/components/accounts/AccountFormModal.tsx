@@ -44,20 +44,20 @@ function AccountFormContent({
       <section className="grid gap-3">
         <h3 className="text-sm font-bold text-base-content">Project identity</h3>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="form-control grid gap-1.5">
-            <span className="label-text text-xs font-semibold">Account name</span>
+          <label className="fieldset gap-1.5 p-0">
+            <span className="label p-0 text-xs font-semibold text-base-content">Account name</span>
             <input
-              className="input input-bordered w-full"
+              className="input w-full"
               onChange={(event) => updateField("name", event.target.value)}
               placeholder="Production control"
               required
               value={form.name}
             />
           </label>
-          <label className="form-control grid gap-1.5">
-            <span className="label-text text-xs font-semibold">Project ID</span>
+          <label className="fieldset gap-1.5 p-0">
+            <span className="label p-0 text-xs font-semibold text-base-content">Project ID</span>
             <input
-              className="input input-bordered w-full font-mono text-sm"
+              className="input w-full font-mono text-sm"
               onChange={(event) => updateField("projectId", event.target.value)}
               placeholder="ark-project"
               required
@@ -69,10 +69,10 @@ function AccountFormContent({
 
       <section className="grid gap-3 border-t border-base-300 pt-5">
         <h3 className="text-sm font-bold text-base-content">Workload identity federation</h3>
-        <label className="form-control grid gap-1.5">
-          <span className="label-text text-xs font-semibold">Service account</span>
+        <label className="fieldset gap-1.5 p-0">
+          <span className="label p-0 text-xs font-semibold text-base-content">Service account</span>
           <input
-            className="input input-bordered w-full font-mono text-sm"
+            className="input w-full font-mono text-sm"
             onChange={(event) => updateField("serviceAccountEmail", event.target.value)}
             placeholder="ark-control-vps@project.iam.gserviceaccount.com"
             required
@@ -82,10 +82,12 @@ function AccountFormContent({
             IAM principal granted Compute Instance Admin and Workload Identity User roles.
           </span>
         </label>
-        <label className="form-control grid gap-1.5">
-          <span className="label-text text-xs font-semibold">Workload identity provider</span>
+        <label className="fieldset gap-1.5 p-0">
+          <span className="label p-0 text-xs font-semibold text-base-content">
+            Workload identity provider
+          </span>
           <input
-            className="input input-bordered w-full font-mono text-sm"
+            className="input w-full font-mono text-sm"
             onChange={(event) => updateField("workloadIdentityProvider", event.target.value)}
             placeholder="//iam.googleapis.com/projects/.../locations/global/workloadIdentityPools/.../providers/..."
             required
@@ -99,10 +101,10 @@ function AccountFormContent({
 
       <section className="grid gap-3 border-t border-base-300 pt-5">
         <h3 className="text-sm font-bold text-base-content">Compute defaults</h3>
-        <label className="form-control grid gap-1.5">
-          <span className="label-text text-xs font-semibold">Default zone</span>
+        <label className="fieldset gap-1.5 p-0">
+          <span className="label p-0 text-xs font-semibold text-base-content">Default zone</span>
           <input
-            className="input input-bordered w-full text-sm"
+            className="input w-full text-sm"
             onChange={(event) => updateField("defaultZone", event.target.value)}
             placeholder="us-central1-c"
             required
@@ -116,10 +118,10 @@ function AccountFormContent({
             return (
               <button
                 className={cx(
-                  "accounts-preset-chip rounded border px-2 py-1 transition-colors duration-150",
+                  "btn btn-xs h-7 min-h-7 px-2 text-[0.7rem]",
                   selected
-                    ? "border-info bg-base-100 text-info"
-                    : "border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40 hover:text-base-content"
+                    ? "btn-info btn-soft border border-info/50"
+                    : "btn-ghost border border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40"
                 )}
                 key={zone}
                 onClick={() => updateField("defaultZone", zone)}
@@ -133,10 +135,10 @@ function AccountFormContent({
       </section>
 
       <div className="flex justify-end gap-2 border-t border-base-300 pt-4">
-        <button className="btn" disabled={busy} onClick={onCancel} type="button">
+        <button className="btn btn-sm" disabled={busy} onClick={onCancel} type="button">
           Cancel
         </button>
-        <button className="btn btn-primary" disabled={busy} type="submit">
+        <button className="btn btn-primary btn-sm" disabled={busy} type="submit">
           {busy ? <LoaderCircle aria-hidden="true" className="animate-spin" size={16} /> : null}
           Save
         </button>

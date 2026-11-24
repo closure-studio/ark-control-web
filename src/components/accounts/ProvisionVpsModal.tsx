@@ -107,10 +107,10 @@ function ProvisionVpsFormContent({
 
       <div className="grid items-start gap-5 sm:grid-cols-2">
         <div className="grid gap-2">
-          <label className="form-control grid gap-1.5">
-            <span className="label-text text-xs font-bold">CPU cores (vCPU)</span>
+          <label className="fieldset gap-1.5 p-0">
+            <span className="label p-0 text-xs font-bold text-base-content">CPU cores (vCPU)</span>
             <input
-              className="input input-bordered w-full tabular-nums text-sm"
+              className="input w-full text-sm tabular-nums"
               disabled={busy}
               max={MAX_VPS_CPU_COUNT}
               min={MIN_VPS_CPU_COUNT}
@@ -127,10 +127,10 @@ function ProvisionVpsFormContent({
                 <button
                   aria-label={`${cores} vCPU`}
                   className={cx(
-                    "accounts-preset-chip rounded border px-2 py-1 tabular-nums transition-colors duration-150",
+                    "btn btn-xs h-7 min-h-7 px-2 text-[0.7rem] tabular-nums",
                     selected
-                      ? "border-info bg-base-100 text-info"
-                      : "border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40 hover:text-base-content"
+                      ? "btn-info btn-soft border border-info/50"
+                      : "btn-ghost border border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40"
                   )}
                   disabled={busy}
                   key={cores}
@@ -145,10 +145,10 @@ function ProvisionVpsFormContent({
         </div>
 
         <div className="grid gap-2">
-          <label className="form-control grid gap-1.5">
-            <span className="label-text text-xs font-bold">Memory (GB)</span>
+          <label className="fieldset gap-1.5 p-0">
+            <span className="label p-0 text-xs font-bold text-base-content">Memory (GB)</span>
             <input
-              className="input input-bordered w-full tabular-nums text-sm"
+              className="input w-full text-sm tabular-nums"
               disabled={busy}
               max={memoryBounds.max}
               min={memoryBounds.min}
@@ -166,10 +166,10 @@ function ProvisionVpsFormContent({
               return (
                 <button
                   className={cx(
-                    "accounts-preset-chip rounded border px-2 py-1 tabular-nums transition-colors duration-150",
+                    "btn btn-xs h-7 min-h-7 px-2 text-[0.7rem] tabular-nums",
                     selected
-                      ? "border-info bg-base-100 text-info"
-                      : "border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40 hover:text-base-content"
+                      ? "btn-info btn-soft border border-info/50"
+                      : "btn-ghost border border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40"
                   )}
                   disabled={busy}
                   key={gb}
@@ -188,10 +188,10 @@ function ProvisionVpsFormContent({
       </div>
 
       <div className="grid gap-2 border-t border-base-300 pt-5">
-        <label className="form-control grid gap-1.5">
-          <span className="label-text text-xs font-bold">Boot disk size (GB)</span>
+        <label className="fieldset gap-1.5 p-0">
+          <span className="label p-0 text-xs font-bold text-base-content">Boot disk size (GB)</span>
           <input
-            className="input input-bordered w-full tabular-nums text-sm"
+            className="input w-full text-sm tabular-nums"
             disabled={busy}
             max={MAX_VPS_DISK_SIZE_GB}
             min={MIN_VPS_DISK_SIZE_GB}
@@ -210,10 +210,10 @@ function ProvisionVpsFormContent({
               return (
                 <button
                   className={cx(
-                    "accounts-preset-chip rounded border px-2 py-1 tabular-nums transition-colors duration-150",
+                    "btn btn-xs h-7 min-h-7 px-2 text-[0.7rem] tabular-nums",
                     selected
-                      ? "border-info bg-base-100 text-info"
-                      : "border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40 hover:text-base-content"
+                      ? "btn-info btn-soft border border-info/50"
+                      : "btn-ghost border border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40"
                   )}
                   disabled={busy}
                   key={sizeGb}
@@ -236,7 +236,7 @@ function ProvisionVpsFormContent({
         className="grid gap-2.5 border-t border-base-300 pt-5"
         role="group"
       >
-        <span className="label-text text-xs font-bold" id="vm-provisioning-model-label">
+        <span className="text-xs font-bold text-base-content" id="vm-provisioning-model-label">
           VM provisioning model
         </span>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -246,9 +246,9 @@ function ProvisionVpsFormContent({
               <button
                 aria-pressed={selected}
                 className={cx(
-                  "accounts-model-card flex flex-col items-start gap-1 rounded-md border p-3.5 text-left transition-colors duration-150",
+                  "flex flex-col items-start gap-1 rounded-box border p-3.5 text-left transition-colors",
                   selected
-                    ? "accounts-model-card-active border-info bg-base-200/60"
+                    ? "border-info bg-info/8 shadow-[inset_0_0_0_1px_var(--color-info)]"
                     : "border-base-300 bg-base-100 hover:border-base-content/35"
                 )}
                 disabled={busy}
@@ -269,10 +269,10 @@ function ProvisionVpsFormContent({
       </div>
 
       <div className="flex justify-end gap-2 border-t border-base-300 pt-4">
-        <button className="btn" disabled={busy} onClick={onCancel} type="button">
+        <button className="btn btn-sm" disabled={busy} onClick={onCancel} type="button">
           Cancel
         </button>
-        <button className="btn btn-primary gap-2" disabled={busy || !valid} type="submit">
+        <button className="btn btn-primary btn-sm gap-2" disabled={busy || !valid} type="submit">
           {busy ? (
             <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
           ) : (
