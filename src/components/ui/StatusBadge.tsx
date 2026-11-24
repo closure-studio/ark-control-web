@@ -1,21 +1,37 @@
 import { cx } from "@/utils";
 
-const ERROR_STATUSES: ReadonlySet<string> = new Set(["error", "failed", "timed_out"]);
-const NEUTRAL_STATUSES: ReadonlySet<string> = new Set(["disabled", "skipped", "suspended", "terminated"]);
-const SUCCESS_STATUSES: ReadonlySet<string> = new Set(["enabled", "running", "succeeded", "success"]);
-const WARNING_STATUSES: ReadonlySet<string> = new Set(["pending", "provisioning", "staging", "stopping", "submitted"]);
+export const STATUS_BADGE_BASE_CLASS_NAME = "badge badge-sm badge-soft font-bold";
+
+export const BADGE_TONE_CLASSES = {
+  success: "badge-success",
+  info: "badge-info",
+  warning: "badge-warning",
+  error: "badge-error",
+  neutral: "badge-neutral",
+  ghost: "badge-ghost"
+} as const;
+
+const STATUS_BADGE_TONES: ReadonlyMap<string, keyof typeof BADGE_TONE_CLASSES> = new Map([
+  ["enabled", "success"],
+  ["running", "success"],
+  ["succeeded", "success"],
+  ["success", "success"],
+  ["error", "error"],
+  ["failed", "error"],
+  ["timed_out", "error"],
+  ["pending", "warning"],
+  ["provisioning", "warning"],
+  ["staging", "warning"],
+  ["stopping", "warning"],
+  ["submitted", "warning"],
+  ["disabled", "neutral"],
+  ["skipped", "neutral"],
+  ["suspended", "neutral"],
+  ["terminated", "neutral"]
+]);
 
 export function StatusBadge({ value }: { value: string | null | undefined }) {
-  const status = (value ?? "unknown").toLowerCase();
-  const tone =
-    SUCCESS_STATUSES.has(status)
-      ? "badge-success"
-      : ERROR_STATUSES.has(status)
-        ? "badge-error"
-        : WARNING_STATUSES.has(status)
-          ? "badge-warning"
-          : NEUTRAL_STATUSES.has(status)
-            ? "badge-neutral"
-            : "badge-ghost";
-  return <span className={cx("badge badge-sm badge-soft font-bold", tone)}>{value ?? "Unknown"}</span>;
+  const label = value ?? "Unknown";
+  const tone = STATUS_BADGE_TONES.get(label.toLowerCase()) ?? "ghost";
+  return <span className={cx(STATUS_BADGE_BASE_CLASS_NAME, BADGE_TONE_CLASSES[tone])}>{label}</span>;
 }

@@ -2,49 +2,81 @@ import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { cx } from "@/utils";
 
+const FORM_FRAME = {
+  titleId: "form-modal-title",
+  closeLabel: "Close",
+  backdropLabel: "Close dialog"
+};
+
+const MODAL_KINDS = {
+  confirm: {
+    maxWidth: "max-w-lg",
+    titleId: "confirm-dialog-title",
+    closeLabel: null,
+    backdropLabel: "Close confirmation"
+  },
+  form: { ...FORM_FRAME, maxWidth: "max-w-2xl" },
+  script: { ...FORM_FRAME, maxWidth: "max-w-3xl" },
+  log: { ...FORM_FRAME, maxWidth: "max-w-5xl" }
+} as const;
+
 export function FormModal({
-  open,
-  title,
+  busy = false,
   children,
+  kind,
   onClose,
-  width = "max-w-2xl"
+  open,
+  title
 }: {
+  busy?: boolean;
+  children: ReactNode;
+  kind: keyof typeof MODAL_KINDS;
+  onClose: () => void;
   open: boolean;
   title: string;
-  children: ReactNode;
-  onClose: () => void;
-  width?: string;
 }) {
   if (!open) return null;
+  const { titleId, maxWidth, closeLabel, backdropLabel } = MODAL_KINDS[kind];
   return (
     <div
-      aria-labelledby="form-modal-title"
+      aria-labelledby={titleId}
       aria-modal="true"
-      className="modal modal-open backdrop-blur-xs"
+      className="modal modal-open grid-cols-1 grid-rows-1"
       role="dialog"
     >
       <div
         className={cx(
-          "modal-box max-h-[90vh] w-11/12 overflow-x-hidden rounded-box border border-base-content/20 bg-base-100 p-0 shadow-2xl",
-          width
+          "modal-box glass-chrome grid max-h-[90vh] w-11/12 grid-cols-1 overflow-x-hidden overflow-y-auto rounded-box border border-base-content/20 p-0 text-base-content shadow-lg",
+          maxWidth
         )}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-base-300 bg-base-100 px-5 py-4">
-          <h2 className="text-lg font-bold" id="form-modal-title">
+        <div className="flex items-center justify-between gap-3 px-5 py-4">
+          <h2 className="min-w-0 text-lg font-bold wrap-anywhere" id={titleId}>
             {title}
           </h2>
-          <button
-            aria-label="Close"
-            className="btn btn-square btn-ghost btn-sm"
-            onClick={onClose}
-            type="button"
-          >
-            <X aria-hidden="true" size={18} />
-          </button>
+          {closeLabel !== null && (
+            <button
+              aria-label={closeLabel}
+              className="btn btn-square btn-ghost btn-sm shrink-0"
+              disabled={busy}
+              onClick={onClose}
+              type="button"
+            >
+              <X aria-hidden="true" size={18} />
+            </button>
+          )}
         </div>
-        {children}
+        <div className="border-t border-base-300 bg-base-100">
+          {children}
+        </div>
       </div>
-      <button aria-label="Close dialog" className="modal-backdrop" onClick={onClose} type="button" />
+      <button
+        aria-label={backdropLabel}
+        className="modal-backdrop"
+        disabled={busy}
+        onClick={onClose}
+        type="button"
+      />
     </div>
   );
 }

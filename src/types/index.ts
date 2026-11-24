@@ -59,7 +59,15 @@ export interface VpsInventoryResponse {
 
 export type VpsRole = "redroid" | "arkhost";
 
-export type HostRunStatus = "pending" | "running" | "succeeded" | "failed" | "timed_out";
+export const HOST_RUN_STATUS = {
+  SUCCEEDED: "succeeded",
+  RUNNING: "running",
+  PENDING: "pending",
+  FAILED: "failed",
+  TIMED_OUT: "timed_out"
+} as const;
+export type HostRunStatus = (typeof HOST_RUN_STATUS)[keyof typeof HOST_RUN_STATUS];
+export const HOST_RUN_STATUSES: readonly HostRunStatus[] = Object.values(HOST_RUN_STATUS);
 type AiReviewStatus = "success" | "running" | "failed" | "unknown";
 
 export interface ReleaseSummary {

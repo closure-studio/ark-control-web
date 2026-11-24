@@ -1,5 +1,6 @@
 import { LoaderCircle } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
+import { FormModal } from "@/components/ui/FormModal";
 
 export function ConfirmDialog({
   open,
@@ -24,22 +25,13 @@ export function ConfirmDialog({
   useEffect(() => {
     if (!open) setValue("");
   }, [open]);
-  if (!open) return null;
 
   return (
-    <div
-      aria-labelledby="confirm-dialog-title"
-      aria-modal="true"
-      className="modal modal-open backdrop-blur-xs"
-      role="dialog"
-    >
-      <div className="modal-box max-w-lg rounded-box border border-base-content/20 bg-base-100 shadow-2xl">
-        <h2 className="text-lg font-bold" id="confirm-dialog-title">
-          {title}
-        </h2>
-        <div className="mt-3 text-sm leading-6 text-base-content/70">{detail}</div>
+    <FormModal busy={busy} kind="confirm" onClose={onCancel} open={open} title={title}>
+      <div className="p-5">
+        <div className="text-sm leading-6 text-base-content/70 wrap-anywhere">{detail}</div>
         <fieldset className="fieldset mt-4 gap-2">
-          <label className="label text-xs text-base-content/75" htmlFor="confirm-dialog-input">
+          <label className="label text-xs whitespace-normal text-base-content/75 wrap-anywhere" htmlFor="confirm-dialog-input">
             <span>
               Enter <strong className="font-mono text-base-content">{confirmation}</strong> to
               continue
@@ -68,13 +60,6 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-      <button
-        aria-label="Close confirmation"
-        className="modal-backdrop"
-        disabled={busy}
-        onClick={onCancel}
-        type="button"
-      />
-    </div>
+    </FormModal>
   );
 }

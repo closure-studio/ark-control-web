@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { runningHostRun } from "@/test/hostRun.fixture";
 import { createApiClient } from "./client";
 
 function jsonResponse(body: unknown, status = 200) {
@@ -71,5 +72,48 @@ describe("API client response envelope", () => {
       "/api/scheduler/ensure",
       expect.objectContaining({ method: "POST" })
     );
+  });
+});
+
+describe("API client release responses", () => {
+  const release = {
+    id: 41,
+    apkFilename: "ark-production-release.apk",
+    finalUrl: "https://example.com/ark.apk",
+    createdAt: "2026-07-14T11:20:00.000Z"
+  };
+  const pagination = { limit: 25, offset: 0, count: 1 };
+
+  it("rejects an unknown release host-run status", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      data: { runs: [{ ...runningHostRun, status: "paused" }] }
+    })));
+
+    await expect(createApiClient("token", vi.fn()).listReleaseRuns(runningHostRun.releaseId)).rejects.toMatchObject({
+      name: "ApiError",
+      code: "invalid_response",
+      message: expect.stringContaining("runs[0].status")
+    });
+  });
+
+  it("rejects an unknown release statusCounts key", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      data: { releases: [{ ...release, statusCounts: { paused: 1 } }], pagination }
+    })));
+
+    await expect(createApiClient("token", vi.fn()).listReleases(pagination.limit, pagination.offset))
+      .rejects.toMatchObject({
+        name: "ApiError",
+        code: "invalid_response",
+        message: expect.stringContaining("releases[0].statusCounts key")
+      });
+  });
+
+  it("accepts empty release statusCounts", async () => {
+    const data = { releases: [{ ...release, statusCounts: {} }], pagination };
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ data })));
+
+    await expect(createApiClient("token", vi.fn()).listReleases(pagination.limit, pagination.offset))
+      .resolves.toEqual(data);
   });
 });

@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApiClient } from "@/api/client";
+import { RELEASE_POLL_INTERVAL_MS } from "@/components/releases/releaseHelpers";
 import { ReleasesPage } from "@/pages/ReleasesPage";
+import { runningHostRun } from "@/test/hostRun.fixture";
+import type { HostRun, ReleaseSummary } from "@/types";
 
-const releases = [
+const releases: ReleaseSummary[] = [
   {
     id: 41,
     apkFilename: "ark-production-release-2026.07.14-arm64.apk",
@@ -22,24 +25,8 @@ const releases = [
   }
 ];
 
-const runsRelease41 = [
-  {
-    id: 81,
-    releaseId: 41,
-    hostId: 1,
-    hostName: "ark-vps-production-primary",
-    hostIp: "34.120.10.20",
-    status: "running",
-    startedAt: "2026-07-14T11:20:00.000Z",
-    nextCheckAt: "2026-07-14T11:30:00.000Z",
-    deadlineAt: "2026-07-14T12:20:00.000Z",
-    lastCheckedAt: "2026-07-14T11:25:00.000Z",
-    lastAiStatus: "running",
-    lastAiReason: "The helper is still processing the latest APK deployment.",
-    errorMessage: null,
-    createdAt: "2026-07-14T11:20:00.000Z",
-    updatedAt: "2026-07-14T11:25:00.000Z"
-  },
+const runsRelease41: HostRun[] = [
+  runningHostRun,
   {
     id: 82,
     releaseId: 41,
@@ -78,19 +65,26 @@ const runsRelease41 = [
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
-function createReleasesFetchMock() {
+function createReleasesFetchMock({
+  releaseList = releases,
+  getRuns = () => runsRelease41
+} = {}) {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url.startsWith("/api/releases?")) {
       return Response.json({
-        data: { releases, pagination: { limit: 25, offset: 0, count: releases.length } }
+        data: {
+          releases: releaseList,
+          pagination: { limit: 25, offset: 0, count: releaseList.length }
+        }
       });
     }
     if (url === "/api/releases/41/host-runs") {
-      return Response.json({ data: { runs: runsRelease41 } });
+      return Response.json({ data: { runs: getRuns() } });
     }
     if (url === "/api/releases/40/host-runs") {
       return Response.json({ data: { runs: [] } });
@@ -167,6 +161,88 @@ describe("ReleasesPage", () => {
     expect(await screen.findByText("No host runs")).toBeInTheDocument();
   });
 
+  it.each([
+    { passRate: 67, release: releases[0], runs: runsRelease41 },
+    {
+      passRate: 0,
+      release: { ...releases[0], statusCounts: { running: 1, failed: 1 } },
+      runs: runsRelease41.slice(0, 2)
+    }
+  ])("exposes a $passRate% rollout value and Verified pass rate when runs exist", async ({ passRate, release, runs }) => {
+    vi.stubGlobal("fetch", createReleasesFetchMock({ releaseList: [release], getRuns: () => runs }));
+    render(<ReleasesPage api={createApiClient("test-token", vi.fn())} />);
+
+    const hero = within(await screen.findByRole("region", { name: release.apkFilename }));
+    const verified = within(hero.getByRole("button", { name: /^Verified/ }));
+    expect(verified.getByText(`${passRate}% pass rate`, { exact: true })).toBeInTheDocument();
+    expect(hero.getByRole("progressbar", { name: `${passRate}% rollout pass rate` }))
+      .toHaveAttribute("aria-valuenow", String(passRate));
+  });
+
+  it("announces No runs in both the rollout radial and Verified KPI for an empty release", async () => {
+    const release = { ...releases[1], statusCounts: {} };
+    vi.stubGlobal("fetch", createReleasesFetchMock({ releaseList: [release] }));
+    render(<ReleasesPage api={createApiClient("test-token", vi.fn())} />);
+
+    const hero = within(await screen.findByRole("region", { name: release.apkFilename }));
+    const verified = within(hero.getByRole("button", { name: /^Verified/ }));
+    expect.soft(hero.queryByRole("img", { name: "No runs" }), "rollout radial accessible name").toBeInTheDocument();
+    expect.soft(verified.queryByText("No runs", { exact: true }), "Verified detail").toBeInTheDocument();
+    expect(hero.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("filters host runs from the release hero Failures metric", async () => {
+    vi.stubGlobal("fetch", createReleasesFetchMock());
+    render(<ReleasesPage api={createApiClient("test-token", vi.fn())} />);
+    await screen.findByText("[11:25:00] helper running");
+
+    const hero = within(screen.getByRole("region", { name: releases[0].apkFilename }));
+    const failures = hero.getByRole("button", { name: /Failures/i });
+    const totalHosts = hero.getByRole("button", { name: /Total hosts/i });
+    expect(totalHosts).toHaveAttribute("aria-pressed", "true");
+    expect(failures).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(failures);
+
+    expect(failures).toHaveAttribute("aria-pressed", "true");
+    expect(totalHosts).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Attention/i })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText("[11:25:00] ERROR verification failed")).toBeInTheDocument();
+    expect(screen.queryByText("ark-vps-production-primary")).not.toBeInTheDocument();
+    expect(screen.queryByText("ark-vps-healthy-node")).not.toBeInTheDocument();
+  });
+
+  it("uses an info badge for a running host and a success badge for its running AI review", async () => {
+    vi.stubGlobal("fetch", createReleasesFetchMock());
+    render(<ReleasesPage api={createApiClient("test-token", vi.fn())} />);
+    await screen.findByText("external-verification-host");
+
+    fireEvent.click(screen.getByRole("button", { name: "Matrix" }));
+    const table = within(screen.getByRole("table"));
+    const row = table.getByRole("row", {
+      name: (name) => name.startsWith(`${runningHostRun.hostName} `)
+    });
+    const cells = within(row).getAllByRole("cell");
+    const headers = table.getAllByRole("columnheader");
+    const statusColumn = headers.indexOf(table.getByRole("columnheader", { name: "Status" }));
+    const aiReviewColumn = headers.indexOf(table.getByRole("columnheader", { name: "AI review" }));
+
+    expect(within(cells[aiReviewColumn]).getByText(/^running$/i)).toHaveClass("badge-success");
+    const statusBadge = within(cells[statusColumn]).getByText(/^running$/i);
+    expect(statusBadge).toHaveClass("badge-info");
+    expect(statusBadge).not.toHaveClass("badge-success");
+  });
+
+  it("uses an error rail segment for a release with only timed-out runs", async () => {
+    const release = { ...releases[0], statusCounts: { timed_out: 1 } };
+    vi.stubGlobal("fetch", createReleasesFetchMock({ releaseList: [release] }));
+    render(<ReleasesPage api={createApiClient("test-token", vi.fn())} />);
+
+    const timeline = within(screen.getByRole("region", { name: "Release timeline" }));
+    const rail = await timeline.findByRole("img", { name: "1 host runs" });
+    expect(rail.firstElementChild).toHaveClass("bg-error");
+  });
+
   it("opens full terminal log modal with line search, errors-only filter, wrap toggle, and copy", async () => {
     vi.stubGlobal("fetch", createReleasesFetchMock());
     const writeText = vi.fn(async () => undefined);
@@ -219,6 +295,37 @@ describe("ReleasesPage", () => {
     );
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("updates the open run log status after polling and closes it when the run disappears", async () => {
+    vi.useFakeTimers();
+    const runningHost = { ...runsRelease41[0], lastAiStatus: null, lastAiReason: null };
+    const otherHost: HostRun = { ...runsRelease41[2], status: "running" };
+    let runs = [runningHost, otherHost];
+    vi.stubGlobal("fetch", createReleasesFetchMock({ getRuns: () => runs }));
+    const api = createApiClient("test-token", vi.fn());
+
+    await act(async () => {
+      render(<ReleasesPage api={api} />);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Full terminal" }));
+    });
+    const dialogName = `Run log: ${runningHost.hostName}`;
+    const dialog = within(screen.getByRole("dialog", { name: dialogName }));
+    expect(dialog.getByText(/^running$/i)).toBeInTheDocument();
+
+    runs = [otherHost, { ...runningHost, status: "succeeded" }];
+    await act(() => vi.advanceTimersByTimeAsync(RELEASE_POLL_INTERVAL_MS));
+
+    const updatedDialog = within(screen.getByRole("dialog", { name: dialogName }));
+    expect(updatedDialog.queryByText(/^running$/i)).not.toBeInTheDocument();
+    expect(updatedDialog.getByText(/^succeeded$/i)).toBeInTheDocument();
+
+    runs = [otherHost];
+    await act(() => vi.advanceTimersByTimeAsync(RELEASE_POLL_INTERVAL_MS));
+
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 

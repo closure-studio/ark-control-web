@@ -10,6 +10,7 @@ import {
   ACTIVE_RUN_STATUSES,
   EMPTY_COUNT,
   FIRST_PAGE_OFFSET,
+  HOST_RUN_PRESENTATION,
   matchesRunFilter,
   PAGE_SIZE,
   RELEASE_POLL_INTERVAL_MS,
@@ -31,19 +32,22 @@ import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RefreshButton } from "@/components/ui/RefreshButton";
+import { Panel } from "@/components/ui/Panel";
+import { BADGE_TONE_CLASSES, STATUS_BADGE_BASE_CLASS_NAME } from "@/components/ui/StatusBadge";
 import { usePolling } from "@/hooks/usePolling";
 import type { HostRun, ReleaseSummary, RunLog } from "@/types";
 import { cx, messageForError } from "@/utils";
 
+const succeededPresentation = HOST_RUN_PRESENTATION[RUN_FILTER_SUCCEEDED];
 const FILTER_OPTIONS: ReadonlyArray<{
   key: RunFilter;
   label: string;
   countTone: string;
 }> = [
-  { key: RUN_FILTER_ALL, label: "All", countTone: "text-base-content/55" },
+  { key: RUN_FILTER_ALL, label: "All", countTone: "text-muted" },
   { key: RUN_FILTER_ATTENTION, label: "Attention", countTone: "text-error" },
   { key: RUN_FILTER_ACTIVE, label: "Active", countTone: "text-info" },
-  { key: RUN_FILTER_SUCCEEDED, label: "Succeeded", countTone: "text-success" }
+  { key: RUN_FILTER_SUCCEEDED, label: succeededPresentation.label, countTone: succeededPresentation.textClassName }
 ];
 
 function WorkbenchToolbar({
@@ -84,7 +88,7 @@ function WorkbenchToolbar({
                 "inline-flex items-center justify-center gap-1.5 rounded-field border px-2.5 py-1 text-xs font-bold transition-colors",
                 active
                   ? "border-base-content/20 bg-base-100 text-base-content shadow-2xs"
-                  : "border-transparent text-base-content/65 hover:bg-base-content/6 hover:text-base-content"
+                  : "border-transparent text-muted hover:bg-base-content/6 hover:text-base-content"
               )}
               key={option.key}
               onClick={() => onFilterChange(option.key)}
@@ -93,8 +97,8 @@ function WorkbenchToolbar({
               <span>{option.label}</span>
               <span
                 className={cx(
-                  "text-[0.7rem] tabular-nums",
-                  count > EMPTY_COUNT ? option.countTone : "text-base-content/40"
+                  "text-xs tabular-nums",
+                  count > EMPTY_COUNT ? option.countTone : "text-muted"
                 )}
               >
                 {count}
@@ -106,7 +110,7 @@ function WorkbenchToolbar({
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="input input-sm flex min-w-0 flex-1 items-center gap-2 sm:w-64 sm:flex-none">
-          <Search aria-hidden="true" className="shrink-0 text-base-content/45" size={14} />
+          <Search aria-hidden="true" className="shrink-0 text-muted" size={14} />
           <input
             aria-label="Search host runs"
             className="min-w-0 grow"
@@ -117,7 +121,7 @@ function WorkbenchToolbar({
           {query !== "" ? (
             <button
               aria-label="Clear search"
-              className="text-base-content/45 transition-colors hover:text-base-content"
+              className="text-muted transition-colors hover:text-base-content"
               onClick={() => onQueryChange("")}
               type="button"
             >
@@ -145,7 +149,7 @@ function WorkbenchToolbar({
             type="button"
           >
             <Columns2 aria-hidden="true" size={14} />
-            <span className="hidden sm:inline">Inspector</span>
+            <span className="sr-only sm:not-sr-only">Inspector</span>
           </button>
           <button
             aria-pressed={viewMode === VIEW_MODE_MATRIX}
@@ -159,7 +163,7 @@ function WorkbenchToolbar({
             type="button"
           >
             <Table2 aria-hidden="true" size={14} />
-            <span className="hidden sm:inline">Matrix</span>
+            <span className="sr-only sm:not-sr-only">Matrix</span>
           </button>
         </div>
       </div>
@@ -225,7 +229,7 @@ function FleetWorkbenchBody({
       <div className="grid min-h-44 place-items-center px-6 py-8 text-center">
         <div>
           <p className="font-extrabold text-base-content">No matching host runs</p>
-          <p className="mt-1 text-xs text-base-content/60">
+          <p className="mt-1 text-xs text-muted">
             Adjust the status filter or search query to inspect other hosts.
           </p>
           <button className="btn btn-sm mt-4" onClick={onClearFilters} type="button">
@@ -287,7 +291,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
   const [runsLoading, setRunsLoading] = useState(false);
   const [releaseError, setReleaseError] = useState<string | null>(null);
   const [runsError, setRunsError] = useState<string | null>(null);
-  const [modalRun, setModalRun] = useState<HostRun | null>(null);
+  const [modalRunId, setModalRunId] = useState<number | null>(null);
   const [logCache, setLogCache] = useState<Record<number, RunLog>>({});
   const [logErrors, setLogErrors] = useState<Record<number, string>>({});
   const [loadingLogIds, setLoadingLogIds] = useState<Set<number>>(() => new Set());
@@ -308,38 +312,37 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
     return filteredRuns.find((run) => run.id === inspectedRunId) ?? filteredRuns[0];
   }, [filteredRuns, inspectedRunId]);
 
-  const fetchRunLog = useCallback(
-    async (run: HostRun) => {
-      requestedLogIdsRef.current.add(run.id);
+  const modalRun = modalRunId === null ? null : runs.find((run) => run.id === modalRunId) ?? null;
+
+  const fetchRunLog = useCallback(async (runId: number) => {
+    requestedLogIdsRef.current.add(runId);
+    setLoadingLogIds((current) => {
+      const next = new Set(current);
+      next.add(runId);
+      return next;
+    });
+    setLogErrors((current) => {
+      if (!(runId in current)) return current;
+      const next = { ...current };
+      delete next[runId];
+      return next;
+    });
+    try {
+      const response = await api.getRunLog(runId);
+      setLogCache((current) => ({ ...current, [runId]: response }));
+    } catch (error) {
+      setLogErrors((current) => ({
+        ...current,
+        [runId]: messageForError(error, "Unable to load run log.")
+      }));
+    } finally {
       setLoadingLogIds((current) => {
         const next = new Set(current);
-        next.add(run.id);
+        next.delete(runId);
         return next;
       });
-      setLogErrors((current) => {
-        if (!(run.id in current)) return current;
-        const next = { ...current };
-        delete next[run.id];
-        return next;
-      });
-      try {
-        const response = await api.getRunLog(run.id);
-        setLogCache((current) => ({ ...current, [run.id]: response }));
-      } catch (error) {
-        setLogErrors((current) => ({
-          ...current,
-          [run.id]: messageForError(error, "Unable to load run log.")
-        }));
-      } finally {
-        setLoadingLogIds((current) => {
-          const next = new Set(current);
-          next.delete(run.id);
-          return next;
-        });
-      }
-    },
-    [api]
-  );
+    }
+  }, [api]);
 
   const loadReleases = useCallback(
     async (showLoading = true) => {
@@ -372,6 +375,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
       try {
         const response = await api.listReleaseRuns(selectedId);
         setRuns(response.runs);
+        setModalRunId((id) => id !== null && response.runs.some((run) => run.id === id) ? id : null);
         setRunsError(null);
       } catch (error) {
         setRunsError(messageForError(error, "Unable to load release runs."));
@@ -388,7 +392,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
 
   useEffect(() => {
     setRuns([]);
-    setModalRun(null);
+    setModalRunId(null);
     setInspectedRunId(null);
     setRunFilter(RUN_FILTER_ALL);
     setRunQuery("");
@@ -401,7 +405,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
   useEffect(() => {
     if (viewMode !== VIEW_MODE_SPLIT || !inspectedRun) return;
     if (requestedLogIdsRef.current.has(inspectedRun.id)) return;
-    void fetchRunLog(inspectedRun);
+    void fetchRunLog(inspectedRun.id);
   }, [fetchRunLog, inspectedRun, viewMode]);
 
   usePolling(
@@ -409,7 +413,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
       void loadRuns(false);
       void loadReleases(false);
       if (inspectedRun && ACTIVE_RUN_STATUSES.has(inspectedRun.status)) {
-        void fetchRunLog(inspectedRun);
+        void fetchRunLog(inspectedRun.id);
       }
     },
     RELEASE_POLL_INTERVAL_MS,
@@ -422,8 +426,8 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
 
   function openLogModal(run: HostRun) {
     setInspectedRunId(run.id);
-    setModalRun(run);
-    void fetchRunLog(run);
+    setModalRunId(run.id);
+    void fetchRunLog(run.id);
   }
 
   function inspectRunFromMatrix(run: HostRun) {
@@ -442,7 +446,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
         actions={(
           <>
             {hasActiveRuns ? (
-              <span className="inline-flex h-8 items-center gap-1.5 rounded-field border border-info/30 bg-info/10 px-2.5 text-xs font-bold text-info">
+              <span className={cx(STATUS_BADGE_BASE_CLASS_NAME, "h-8 gap-1.5 px-2.5", BADGE_TONE_CLASSES.info)}>
                 <Activity aria-hidden="true" size={14} />
                 Live · {RELEASE_POLL_INTERVAL_SECONDS}s
               </span>
@@ -481,10 +485,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
               runsLoading={runsLoading}
             />
 
-            <section
-              aria-label="Host verification workbench"
-              className="card card-border overflow-hidden border-base-content/18 bg-base-100 shadow-xs"
-            >
+            <Panel aria-label="Host verification workbench">
               {runs.length > EMPTY_COUNT ? (
                 <WorkbenchToolbar
                   counts={filterCounts}
@@ -508,7 +509,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
                 onClearFilters={clearFilters}
                 onInspectFromMatrix={inspectRunFromMatrix}
                 onOpenLogModal={openLogModal}
-                onRefreshLog={(target) => void fetchRunLog(target)}
+                onRefreshLog={(target) => void fetchRunLog(target.id)}
                 onRetryRuns={() => void loadRuns(true)}
                 onSelectRun={(target) => setInspectedRunId(target.id)}
                 runsCount={runs.length}
@@ -516,13 +517,10 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
                 runsLoading={runsLoading}
                 viewMode={viewMode}
               />
-            </section>
+            </Panel>
           </>
         ) : (
-          <section
-            aria-labelledby="release-runs-title"
-            className="card card-border border-base-content/18 bg-base-100 p-5 shadow-xs sm:p-6"
-          >
+          <Panel aria-labelledby="release-runs-title" className="p-5 sm:p-6">
             <h2 className="sr-only" id="release-runs-title">
               Host deployments
             </h2>
@@ -530,7 +528,7 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
               detail="Choose a release from the timeline to inspect host deployments."
               title="No release selected"
             />
-          </section>
+          </Panel>
         )}
       </div>
 
@@ -538,8 +536,8 @@ export function ReleasesPage({ api }: { api: ApiClient }) {
         error={modalRun ? (logErrors[modalRun.id] ?? null) : null}
         loading={modalRun !== null && loadingLogIds.has(modalRun.id)}
         log={modalRun ? (logCache[modalRun.id] ?? null) : null}
-        onClose={() => setModalRun(null)}
-        onRefresh={() => (modalRun ? void fetchRunLog(modalRun) : undefined)}
+        onClose={() => setModalRunId(null)}
+        onRefresh={() => (modalRun ? void fetchRunLog(modalRun.id) : undefined)}
         run={modalRun}
       />
     </div>

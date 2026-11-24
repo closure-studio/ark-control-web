@@ -9,13 +9,15 @@ import {
   LoaderCircle,
   RefreshCw
 } from "lucide-react";
-import type { CSSProperties } from "react";
+import type { ComponentProps, CSSProperties } from "react";
 import { useCopyFeedback } from "@/components/accounts/useCopyFeedback";
 import { StatusRail } from "@/components/StatusRail";
 import {
   APK_URL_COPY_KEY,
   EMPTY_COUNT,
+  HOST_RUN_PRESENTATION,
   parseApkMetadata,
+  PERCENT_SCALE,
   RELEASE_HEALTH_ACTIVE,
   RELEASE_HEALTH_ATTENTION,
   RELEASE_HEALTH_EMPTY,
@@ -29,6 +31,9 @@ import {
   type ReleaseHealth,
   type RunFilter
 } from "@/components/releases/releaseHelpers";
+import { MetricContent } from "@/components/ui/MetricCard";
+import { Panel } from "@/components/ui/Panel";
+import { STATUS_BADGE_BASE_CLASS_NAME } from "@/components/ui/StatusBadge";
 import type { ReleaseSummary } from "@/types";
 import { cx, formatDateTime } from "@/utils";
 
@@ -64,6 +69,16 @@ export function ReleaseHeroBanner({
   const healthMeta = RELEASE_HEALTH_META[summary.health];
   const HealthIcon = HEALTH_BADGE_ICONS[summary.health];
   const parsed = parseApkMetadata(release.apkFilename);
+  const hasRuns = summary.total > EMPTY_COUNT;
+  const radialSemantics = hasRuns
+    ? {
+      role: "progressbar",
+      "aria-label": `${summary.passRate}% rollout pass rate`,
+      "aria-valuemin": EMPTY_COUNT,
+      "aria-valuemax": PERCENT_SCALE,
+      "aria-valuenow": summary.passRate
+    }
+    : { role: "img", "aria-label": healthMeta.label };
 
   const radialStyle: RadialStyle = {
     "--value": summary.passRate,
@@ -71,90 +86,74 @@ export function ReleaseHeroBanner({
     "--thickness": "5px"
   };
 
-  const kpiCards: ReadonlyArray<{
-    filter: RunFilter;
-    label: string;
-    value: number;
-    hint: string;
-    valueTone: string;
-  }> = [
+  const kpiCards: ReadonlyArray<ComponentProps<typeof MetricContent> & { filter: RunFilter }> = [
     {
       filter: RUN_FILTER_ALL,
       label: "Total hosts",
       value: summary.total,
-      hint: "Target fleet",
-      valueTone: "text-base-content"
+      detail: "Target fleet"
     },
     {
       filter: RUN_FILTER_SUCCEEDED,
       label: "Verified",
       value: summary.succeeded,
-      hint: `${summary.passRate}% pass rate`,
-      valueTone: "text-success"
+      detail: hasRuns ? `${summary.passRate}% pass rate` : healthMeta.label,
+      tone: HOST_RUN_PRESENTATION[RUN_FILTER_SUCCEEDED].tone
     },
     {
       filter: RUN_FILTER_ACTIVE,
       label: "In progress",
       value: summary.active,
-      hint: `${summary.running} running · ${summary.pending} queued`,
-      valueTone: "text-info"
+      detail: `${summary.running} running · ${summary.pending} queued`,
+      tone: "info"
     },
     {
       filter: RUN_FILTER_ATTENTION,
       label: "Failures",
       value: summary.attention,
-      hint: `${summary.failed} failed · ${summary.timedOut} timed out`,
-      valueTone: summary.attention > EMPTY_COUNT ? "text-error" : "text-base-content/50"
+      detail: `${summary.failed} failed · ${summary.timedOut} timed out`,
+      tone: summary.attention > EMPTY_COUNT ? "error" : "muted"
     }
   ];
 
   return (
-    <section
-      aria-labelledby="release-runs-title"
-      className="card card-border overflow-hidden border-base-content/18 bg-base-100 shadow-xs"
-    >
-      <div className="grid gap-5 p-5 sm:p-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] xl:items-center">
-        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
+    <Panel aria-labelledby="release-runs-title">
+      <div className="grid gap-3 p-5 sm:p-6 xl:grid-cols-12 xl:grid-rows-2">
+        <div className="flex min-w-0 flex-col gap-4 rounded-box border border-base-300 p-4 sm:flex-row sm:items-start sm:p-5 xl:col-span-7 xl:row-span-2">
           <div
-            aria-label={`${summary.passRate}% rollout pass rate`}
+            {...radialSemantics}
             className={cx(
               "radial-progress shrink-0 bg-base-200/70 text-sm font-black tabular-nums",
               healthMeta.radialClassName
             )}
-            role="progressbar"
             style={radialStyle}
           >
-            {summary.total > EMPTY_COUNT ? `${summary.passRate}%` : "—"}
+            {hasRuns ? `${summary.passRate}%` : "—"}
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={cx(
-                  "inline-flex items-center gap-1 rounded-field border px-2 py-0.5 text-[0.7rem] font-bold",
-                  healthMeta.badgeClassName
-                )}
-              >
+              <span className={cx(STATUS_BADGE_BASE_CLASS_NAME, healthMeta.badgeClassName)}>
                 <HealthIcon aria-hidden="true" size={12} />
                 {healthMeta.label}
               </span>
-              <span className="text-xs font-bold tabular-nums text-base-content/55">
+              <span className="font-mono text-xs font-bold tabular-nums text-muted">
                 Release #{release.id}
               </span>
               {parsed.arch ? (
-                <span className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-[0.68rem] font-semibold text-base-content/75">
+                <span className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-xs font-semibold text-muted">
                   {parsed.arch}
                 </span>
               ) : null}
             </div>
 
             <h2
-              className="mt-2 break-words text-xl font-black leading-snug text-base-content sm:text-2xl"
+              className="mt-2 font-mono text-xl font-black leading-snug wrap-anywhere text-base-content sm:text-2xl"
               id="release-runs-title"
             >
               {release.apkFilename}
             </h2>
-            <p className="mt-1 text-xs text-base-content/55">
+            <p className="mt-1 text-xs text-muted">
               Published {formatDateTime(release.createdAt)}
             </p>
 
@@ -197,36 +196,23 @@ export function ReleaseHeroBanner({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-3 xl:col-span-5 xl:row-span-2 xl:grid-cols-2 xl:grid-rows-subgrid">
           {kpiCards.map((item) => {
             const active = activeFilter === item.filter;
             return (
               <button
                 aria-pressed={active}
                 className={cx(
-                  "flex flex-col items-start rounded-box border p-3.5 text-left transition-all",
+                  "flex min-w-0 flex-col gap-1.5 rounded-box border p-3.5 text-left transition-colors",
                   active
-                    ? "border-info bg-info/8 shadow-2xs"
-                    : "border-base-300 bg-base-200/35 hover:border-base-content/30 hover:bg-base-200/60"
+                    ? "border-primary bg-base-200"
+                    : "border-base-300 bg-base-100 hover:border-base-content/30 hover:bg-base-200"
                 )}
                 key={item.filter}
                 onClick={() => onSelectFilter(item.filter)}
                 type="button"
               >
-                <span className="text-[0.7rem] font-bold uppercase text-base-content/55">
-                  {item.label}
-                </span>
-                <strong
-                  className={cx(
-                    "mt-1 text-2xl font-black leading-none tabular-nums",
-                    item.valueTone
-                  )}
-                >
-                  {item.value}
-                </strong>
-                <span className="mt-1.5 text-[0.68rem] leading-tight text-base-content/55">
-                  {item.hint}
-                </span>
+                <MetricContent detail={item.detail} label={item.label} tone={item.tone} value={item.value} />
               </button>
             );
           })}
@@ -235,15 +221,15 @@ export function ReleaseHeroBanner({
 
       <div className="border-t border-base-300 bg-base-200/40 px-5 py-3.5 sm:px-6">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 text-xs">
-          <span className="font-bold text-base-content/65">Rollout verification</span>
+          <span className="font-bold text-muted">Rollout verification</span>
           <span className="font-semibold tabular-nums text-base-content/80">
-            {summary.total > EMPTY_COUNT
+            {hasRuns
               ? `${summary.passRate}% succeeded (${summary.succeeded} of ${summary.total} hosts)`
               : "No host deployments recorded"}
           </span>
         </div>
         <StatusRail compact counts={release.statusCounts} showEmptyStatuses={false} />
       </div>
-    </section>
+    </Panel>
   );
 }

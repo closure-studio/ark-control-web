@@ -6,11 +6,10 @@ import {
   formatReleaseRange,
   PAGE_SIZE,
   parseApkMetadata,
-  PERCENT_SCALE,
   RELEASE_HEALTH_META,
-  STATUS_BAR_SEGMENTS,
   summarizeReleaseCounts
 } from "@/components/releases/releaseHelpers";
+import { StatusBar } from "@/components/StatusRail";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LoadingBlock } from "@/components/ui/LoadingBlock";
 import type { ReleaseSummary } from "@/types";
@@ -23,29 +22,6 @@ type RadialStyle = CSSProperties & {
   "--size": string;
   "--thickness": string;
 };
-
-function MiniStatusBar({ counts, total }: { counts: ReleaseSummary["statusCounts"]; total: number }) {
-  return (
-    <div
-      aria-label={`${total} host runs`}
-      className="flex h-1.5 w-full overflow-hidden rounded bg-base-300/80"
-      role="img"
-    >
-      {total > EMPTY_COUNT
-        ? STATUS_BAR_SEGMENTS.map((segment) => {
-            const value = counts[segment.key] ?? EMPTY_COUNT;
-            return value > EMPTY_COUNT ? (
-              <span
-                className={segment.className}
-                key={segment.key}
-                style={{ width: `${(value / total) * PERCENT_SCALE}%` }}
-              />
-            ) : null;
-          })
-        : null}
-    </div>
-  );
-}
 
 export function ReleaseTimelineStrip({
   loading,
@@ -64,11 +40,13 @@ export function ReleaseTimelineStrip({
   releases: ReleaseSummary[];
   selectedId: number | null;
 }) {
+  const isScrollable = releases.length > TIMELINE_SCROLL_THRESHOLD;
+
   return (
     <section aria-labelledby="release-list-title" className="min-w-0">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <h2 className="text-sm font-extrabold uppercase text-base-content/70" id="release-list-title">
+          <h2 className="text-sm font-extrabold uppercase text-muted" id="release-list-title">
             Release timeline
           </h2>
           {releases.length > EMPTY_COUNT ? (
@@ -99,26 +77,24 @@ export function ReleaseTimelineStrip({
         </div>
       </div>
 
-      {loading && releases.length === EMPTY_COUNT ? (
-        <div className="card card-border border-base-content/18 bg-base-100 shadow-xs">
-          <LoadingBlock label="Loading releases" />
-        </div>
-      ) : null}
-
-      {!loading && releases.length === EMPTY_COUNT ? (
-        <div className="card card-border border-base-content/18 bg-base-100 shadow-xs">
-          <EmptyState
-            detail="APK deployments will appear here once recorded."
-            title="No releases"
-          />
+      {releases.length === EMPTY_COUNT ? (
+        <div className="surface">
+          {loading ? (
+            <LoadingBlock label="Loading releases" />
+          ) : (
+            <EmptyState
+              detail="APK deployments will appear here once recorded."
+              title="No releases"
+            />
+          )}
         </div>
       ) : null}
 
       {releases.length > EMPTY_COUNT ? (
         <div
           className={cx(
-            "grid gap-3 p-0.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4",
-            releases.length > TIMELINE_SCROLL_THRESHOLD && "scrollbar-thin max-h-72 overflow-y-auto"
+            "grid grid-cols-1 gap-3 p-0.5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4",
+            isScrollable && "scrollbar-thin max-h-72 overflow-y-auto"
           )}
         >
           {releases.map((release) => {
@@ -136,10 +112,9 @@ export function ReleaseTimelineStrip({
               <button
                 aria-pressed={selected}
                 className={cx(
-                  "card card-border flex flex-col justify-between gap-3 p-3.5 text-left transition-all",
-                  selected
-                    ? "border-info bg-base-100 shadow-sm ring-1 ring-info/35"
-                    : "border-base-content/14 bg-base-100/70 hover:border-base-content/30 hover:bg-base-100"
+                  "surface flex flex-col justify-between gap-3 p-3.5 text-left transition-colors",
+                  isScrollable && "focus-visible:-outline-offset-2",
+                  selected ? "border-primary" : "hover:border-base-content/30"
                 )}
                 key={release.id}
                 onClick={() => onSelect(release.id)}
@@ -149,7 +124,7 @@ export function ReleaseTimelineStrip({
                   <div
                     aria-hidden="true"
                     className={cx(
-                      "radial-progress shrink-0 bg-base-200/70 text-[0.68rem] font-black tabular-nums",
+                      "radial-progress shrink-0 bg-base-200/70 text-xs font-black tabular-nums",
                       healthMeta.radialClassName
                     )}
                     style={radialStyle}
@@ -159,20 +134,20 @@ export function ReleaseTimelineStrip({
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs font-extrabold text-base-content">
+                      <span className="truncate font-mono text-xs font-extrabold text-base-content">
                         {parsed.version ?? `Release #${release.id}`}
                       </span>
-                      <span className="shrink-0 text-[0.6875rem] font-semibold tabular-nums text-base-content/45">
+                      <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-muted">
                         #{release.id}
                       </span>
                     </div>
-                    <p className="mt-0.5 truncate text-[0.72rem] font-medium text-base-content/70">
+                    <p className="mt-0.5 font-mono text-xs font-medium wrap-anywhere text-muted">
                       {release.apkFilename}
                     </p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-base-content/55">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                       <span>{formatDateTime(release.createdAt)}</span>
                       {parsed.arch ? (
-                        <span className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-[0.65rem] text-base-content/70">
+                        <span className="rounded bg-base-200 px-1.5 py-0.5 font-mono text-muted">
                           {parsed.arch}
                         </span>
                       ) : null}
@@ -181,8 +156,8 @@ export function ReleaseTimelineStrip({
                 </div>
 
                 <div className="grid gap-1.5">
-                  <div className="flex items-center justify-between gap-2 text-[0.7rem] font-semibold tabular-nums">
-                    <span className="text-base-content/70">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold tabular-nums">
+                    <span className="text-muted">
                       {summary.total > EMPTY_COUNT
                         ? `${summary.succeeded}/${summary.total} verified`
                         : "No host runs"}
@@ -196,7 +171,7 @@ export function ReleaseTimelineStrip({
                       ) : null}
                     </div>
                   </div>
-                  <MiniStatusBar counts={release.statusCounts} total={summary.total} />
+                  <StatusBar className="h-1.5 bg-base-300/80" counts={release.statusCounts} total={summary.total} />
                 </div>
               </button>
             );

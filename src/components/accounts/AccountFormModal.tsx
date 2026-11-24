@@ -1,12 +1,12 @@
-import { LoaderCircle } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import {
   COMMON_GCP_ZONES,
   EMPTY_ACCOUNT_INPUT
 } from "@/components/accounts/accountHelpers";
 import { FormModal } from "@/components/ui/FormModal";
+import { ModalFormActions } from "@/components/ui/ModalFormActions";
+import { PresetButton } from "@/components/ui/PresetButton";
 import type { AccountInput, GcpAccount } from "@/types";
-import { cx } from "@/utils";
 
 function initialFormState(account: GcpAccount | null): AccountInput {
   if (!account) return EMPTY_ACCOUNT_INPUT;
@@ -78,7 +78,7 @@ function AccountFormContent({
             required
             value={form.serviceAccountEmail}
           />
-          <span className="text-xs text-base-content/55">
+          <span className="text-xs text-muted">
             IAM principal granted Compute Instance Admin and Workload Identity User roles.
           </span>
         </label>
@@ -93,7 +93,7 @@ function AccountFormContent({
             required
             value={form.workloadIdentityProvider}
           />
-          <span className="text-xs text-base-content/55">
+          <span className="text-xs text-muted">
             Full OIDC provider resource URI used for keyless token exchange.
           </span>
         </label>
@@ -112,37 +112,20 @@ function AccountFormContent({
           />
         </label>
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-xs text-base-content/55">Common zones:</span>
-          {COMMON_GCP_ZONES.map((zone) => {
-            const selected = form.defaultZone === zone;
-            return (
-              <button
-                className={cx(
-                  "btn btn-xs h-7 min-h-7 px-2 text-[0.7rem]",
-                  selected
-                    ? "btn-info btn-soft border border-info/50"
-                    : "btn-ghost border border-base-300 bg-base-200/70 text-base-content/75 hover:border-base-content/40"
-                )}
-                key={zone}
-                onClick={() => updateField("defaultZone", zone)}
-                type="button"
-              >
-                {zone}
-              </button>
-            );
-          })}
+          <span className="mr-1 text-xs text-muted">Common zones:</span>
+          {COMMON_GCP_ZONES.map((zone) => (
+            <PresetButton
+              key={zone}
+              onClick={() => updateField("defaultZone", zone)}
+              pressed={form.defaultZone === zone}
+            >
+              {zone}
+            </PresetButton>
+          ))}
         </div>
       </section>
 
-      <div className="flex justify-end gap-2 border-t border-base-300 pt-4">
-        <button className="btn btn-sm" disabled={busy} onClick={onCancel} type="button">
-          Cancel
-        </button>
-        <button className="btn btn-primary btn-sm" disabled={busy} type="submit">
-          {busy ? <LoaderCircle aria-hidden="true" className="animate-spin" size={16} /> : null}
-          Save
-        </button>
-      </div>
+      <ModalFormActions busy={busy} onCancel={onCancel}>Save</ModalFormActions>
     </form>
   );
 }
@@ -164,19 +147,19 @@ export function AccountFormModal({
 }) {
   return (
     <FormModal
+      busy={busy}
+      kind="form"
       onClose={onClose}
       open={open}
       title={account === null ? "Add GCP account" : "Edit GCP account"}
     >
-      {open ? (
-        <AccountFormContent
-          account={account}
-          busy={busy}
-          key={formKey}
-          onCancel={onClose}
-          onSubmit={onSubmit}
-        />
-      ) : null}
+      <AccountFormContent
+        account={account}
+        busy={busy}
+        key={formKey}
+        onCancel={onClose}
+        onSubmit={onSubmit}
+      />
     </FormModal>
   );
 }

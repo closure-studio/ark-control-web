@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { hasEmbeddedAdminToken } from "@/components/accounts/accountHelpers";
 import { useCopyFeedback } from "@/components/accounts/useCopyFeedback";
 import { FormModal } from "@/components/ui/FormModal";
+import { TerminalFrame } from "@/components/ui/TerminalFrame";
 import { buildCloudShellScript } from "@/constants/cloudShellScript";
 import { cx } from "@/utils";
 
@@ -40,8 +41,8 @@ export function CloudShellModal({
   const copied = copiedKey === COPY_KEY_SCRIPT;
 
   return (
-    <FormModal onClose={onClose} open={open} title="Cloud Shell setup" width="max-w-3xl">
-      <div className="grid min-w-0 gap-5 p-5">
+    <FormModal kind="script" onClose={onClose} open={open} title="Cloud Shell setup">
+      <div className="grid grid-cols-1 gap-5 p-5">
         <ol className="grid gap-4 border-b border-base-300 pb-4 sm:grid-cols-3">
           {SETUP_STEPS.map((item) => (
             <li className="grid gap-1" key={item.step}>
@@ -49,7 +50,7 @@ export function CloudShellModal({
                 <span className="tabular-nums text-info">{item.step}</span>
                 <span>{item.title}</span>
               </div>
-              <p className="text-xs leading-5 text-base-content/60">{item.detail}</p>
+              <p className="text-xs leading-5 text-muted">{item.detail}</p>
             </li>
           ))}
         </ol>
@@ -63,11 +64,8 @@ export function CloudShellModal({
             : "Cloud Shell will ask for your admin token before registering the project."}
         </p>
 
-        <div className="min-w-0 overflow-hidden rounded-box border border-base-content/20 bg-neutral text-neutral-content">
-          <div className="flex items-center justify-between gap-3 border-b border-neutral-content/15 bg-black/15 px-4 py-2.5">
-            <span className="truncate text-xs font-semibold text-neutral-content/75">
-              cloud-shell-setup.sh
-            </span>
+        <TerminalFrame
+          actions={
             <button
               className={cx(
                 "btn btn-xs shrink-0 gap-1.5",
@@ -76,14 +74,18 @@ export function CloudShellModal({
               onClick={() => void copyText(COPY_KEY_SCRIPT, script)}
               type="button"
             >
-              {copied ? <Check aria-hidden="true" size={14} /> : <Copy aria-hidden="true" size={14} />}
-              {copied ? "Copied" : "Copy"}
+              {copied ? (
+                <><Check aria-hidden="true" size={14} />Copied</>
+              ) : (
+                <><Copy aria-hidden="true" size={14} />Copy</>
+              )}
             </button>
-          </div>
-          <pre className="scrollbar-thin max-h-72 w-full max-w-full overflow-auto p-4 text-xs leading-relaxed whitespace-pre text-neutral-content [tab-size:2]">
-            <code>{script}</code>
-          </pre>
-        </div>
+          }
+          title="cloud-shell-setup.sh"
+          viewportClassName="max-h-72"
+        >
+          <pre className="whitespace-pre [tab-size:2]"><code>{script}</code></pre>
+        </TerminalFrame>
       </div>
     </FormModal>
   );

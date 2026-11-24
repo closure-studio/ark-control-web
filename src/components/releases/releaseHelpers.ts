@@ -1,4 +1,6 @@
-import type { HostRun, HostRunStatus, ReleaseSummary } from "@/types";
+import { CircleCheck, CircleX, Clock3, LoaderCircle, TimerOff, type LucideIcon } from "lucide-react";
+import { BADGE_TONE_CLASSES } from "@/components/ui/StatusBadge";
+import { HOST_RUN_STATUS, type HostRun, type HostRunStatus, type ReleaseSummary } from "@/types";
 
 export const EMPTY_COUNT = 0;
 export const FIRST_PAGE_OFFSET = 0;
@@ -14,26 +16,20 @@ const MS_PER_SECOND = 1_000;
 const SECONDS_PER_MINUTE = 60;
 const MINUTES_PER_HOUR = 60;
 
-export const RUN_STATUS_PENDING = "pending" as const satisfies HostRunStatus;
-export const RUN_STATUS_RUNNING = "running" as const satisfies HostRunStatus;
-export const RUN_STATUS_SUCCEEDED = "succeeded" as const satisfies HostRunStatus;
-export const RUN_STATUS_FAILED = "failed" as const satisfies HostRunStatus;
-export const RUN_STATUS_TIMED_OUT = "timed_out" as const satisfies HostRunStatus;
-
 export const ACTIVE_RUN_STATUSES: ReadonlySet<HostRunStatus> = new Set([
-  RUN_STATUS_PENDING,
-  RUN_STATUS_RUNNING
+  HOST_RUN_STATUS.PENDING,
+  HOST_RUN_STATUS.RUNNING
 ]);
 
 export const ATTENTION_RUN_STATUSES: ReadonlySet<HostRunStatus> = new Set([
-  RUN_STATUS_FAILED,
-  RUN_STATUS_TIMED_OUT
+  HOST_RUN_STATUS.FAILED,
+  HOST_RUN_STATUS.TIMED_OUT
 ]);
 
 export const RUN_FILTER_ALL = "all";
 export const RUN_FILTER_ATTENTION = "attention";
 export const RUN_FILTER_ACTIVE = "active";
-export const RUN_FILTER_SUCCEEDED = "succeeded";
+export const RUN_FILTER_SUCCEEDED = HOST_RUN_STATUS.SUCCEEDED;
 
 export type RunFilter =
   | typeof RUN_FILTER_ALL
@@ -57,16 +53,111 @@ export type ReleaseHealth =
   | typeof RELEASE_HEALTH_ACTIVE
   | typeof RELEASE_HEALTH_HEALTHY;
 
-export const STATUS_BAR_SEGMENTS: ReadonlyArray<{
-  key: HostRunStatus;
-  className: string;
-}> = [
-  { key: RUN_STATUS_SUCCEEDED, className: "bg-success" },
-  { key: RUN_STATUS_RUNNING, className: "bg-info" },
-  { key: RUN_STATUS_PENDING, className: "bg-warning" },
-  { key: RUN_STATUS_FAILED, className: "bg-error" },
-  { key: RUN_STATUS_TIMED_OUT, className: "bg-neutral" }
-];
+type HostRunTone = "success" | "info" | "warning" | "error";
+
+// Tailwind needs literal class names to generate the styles.
+const RUN_TONE_STYLES: {
+  [Tone in HostRunTone]: {
+    tone: Tone;
+    barClassName: `bg-${Tone}`;
+    badgeClassName: `badge-${Tone}`;
+    textClassName: `text-${Tone}`;
+    stepClassName: `step-${Tone}`;
+  };
+} = {
+  success: {
+    tone: "success",
+    barClassName: "bg-success",
+    badgeClassName: BADGE_TONE_CLASSES.success,
+    textClassName: "text-success",
+    stepClassName: "step-success"
+  },
+  info: {
+    tone: "info",
+    barClassName: "bg-info",
+    badgeClassName: BADGE_TONE_CLASSES.info,
+    textClassName: "text-info",
+    stepClassName: "step-info"
+  },
+  warning: {
+    tone: "warning",
+    barClassName: "bg-warning",
+    badgeClassName: BADGE_TONE_CLASSES.warning,
+    textClassName: "text-warning",
+    stepClassName: "step-warning"
+  },
+  error: {
+    tone: "error",
+    barClassName: "bg-error",
+    badgeClassName: BADGE_TONE_CLASSES.error,
+    textClassName: "text-error",
+    stepClassName: "step-error"
+  }
+};
+
+type LifecycleStep = Readonly<{ label: string; reached: boolean }>;
+
+export const HOST_RUN_PRESENTATION: Readonly<Record<
+  HostRunStatus,
+  (typeof RUN_TONE_STYLES)[HostRunTone] & {
+    label: string;
+    icon: LucideIcon;
+    iconAnimation?: string;
+    lifecycle: readonly [LifecycleStep, LifecycleStep, LifecycleStep];
+  }
+>> = {
+  [HOST_RUN_STATUS.SUCCEEDED]: {
+    ...RUN_TONE_STYLES.success,
+    label: "Succeeded",
+    icon: CircleCheck,
+    lifecycle: [
+      { label: "Dispatched", reached: true },
+      { label: "Verified", reached: true },
+      { label: "Succeeded", reached: true }
+    ]
+  },
+  [HOST_RUN_STATUS.RUNNING]: {
+    ...RUN_TONE_STYLES.info,
+    label: "Running",
+    icon: LoaderCircle,
+    iconAnimation: "animate-spin",
+    lifecycle: [
+      { label: "Dispatched", reached: true },
+      { label: "Verifying", reached: true },
+      { label: "Complete", reached: false }
+    ]
+  },
+  [HOST_RUN_STATUS.PENDING]: {
+    ...RUN_TONE_STYLES.warning,
+    label: "Pending",
+    icon: Clock3,
+    lifecycle: [
+      { label: "Queued", reached: true },
+      { label: "Verify", reached: false },
+      { label: "Complete", reached: false }
+    ]
+  },
+  [HOST_RUN_STATUS.FAILED]: {
+    ...RUN_TONE_STYLES.error,
+    label: "Failed",
+    icon: CircleX,
+    lifecycle: [
+      { label: "Dispatched", reached: true },
+      { label: "Checked", reached: true },
+      { label: "Failed", reached: true }
+    ]
+  },
+  [HOST_RUN_STATUS.TIMED_OUT]: {
+    ...RUN_TONE_STYLES.error,
+    label: "Timed out",
+    icon: TimerOff,
+    lifecycle: [
+      { label: "Dispatched", reached: true },
+      { label: "Expired", reached: true },
+      { label: "Timed out", reached: true }
+    ]
+  }
+};
 
 export const RELEASE_HEALTH_META: Record<
   ReleaseHealth,
@@ -78,23 +169,23 @@ export const RELEASE_HEALTH_META: Record<
 > = {
   [RELEASE_HEALTH_HEALTHY]: {
     label: "All verified",
-    badgeClassName: "border-success/30 bg-success/10 text-success",
+    badgeClassName: BADGE_TONE_CLASSES.success,
     radialClassName: "text-success"
   },
   [RELEASE_HEALTH_ACTIVE]: {
     label: "Deploying",
-    badgeClassName: "border-info/30 bg-info/10 text-info",
+    badgeClassName: BADGE_TONE_CLASSES.info,
     radialClassName: "text-info"
   },
   [RELEASE_HEALTH_ATTENTION]: {
     label: "Needs attention",
-    badgeClassName: "border-error/30 bg-error/10 text-error",
+    badgeClassName: BADGE_TONE_CLASSES.error,
     radialClassName: "text-error"
   },
   [RELEASE_HEALTH_EMPTY]: {
     label: "No runs",
-    badgeClassName: "border-base-300 bg-base-200 text-base-content/60",
-    radialClassName: "text-base-content/35"
+    badgeClassName: BADGE_TONE_CLASSES.ghost,
+    radialClassName: "text-muted"
   }
 };
 
@@ -114,11 +205,11 @@ export interface ReleaseCountSummary {
 export function summarizeReleaseCounts(
   counts: ReleaseSummary["statusCounts"]
 ): ReleaseCountSummary {
-  const succeeded = counts[RUN_STATUS_SUCCEEDED] ?? EMPTY_COUNT;
-  const running = counts[RUN_STATUS_RUNNING] ?? EMPTY_COUNT;
-  const pending = counts[RUN_STATUS_PENDING] ?? EMPTY_COUNT;
-  const failed = counts[RUN_STATUS_FAILED] ?? EMPTY_COUNT;
-  const timedOut = counts[RUN_STATUS_TIMED_OUT] ?? EMPTY_COUNT;
+  const succeeded = counts[HOST_RUN_STATUS.SUCCEEDED] ?? EMPTY_COUNT;
+  const running = counts[HOST_RUN_STATUS.RUNNING] ?? EMPTY_COUNT;
+  const pending = counts[HOST_RUN_STATUS.PENDING] ?? EMPTY_COUNT;
+  const failed = counts[HOST_RUN_STATUS.FAILED] ?? EMPTY_COUNT;
+  const timedOut = counts[HOST_RUN_STATUS.TIMED_OUT] ?? EMPTY_COUNT;
   const active = running + pending;
   const attention = failed + timedOut;
   const total = succeeded + active + attention;
@@ -165,7 +256,7 @@ export function summarizeRunFilters(runs: HostRun[]): RunFilterCounts {
       attention += 1;
     } else if (ACTIVE_RUN_STATUSES.has(run.status)) {
       active += 1;
-    } else if (run.status === RUN_STATUS_SUCCEEDED) {
+    } else if (run.status === HOST_RUN_STATUS.SUCCEEDED) {
       succeeded += 1;
     }
   }
@@ -182,7 +273,7 @@ const RUN_FILTER_PREDICATES: Record<RunFilter, (run: HostRun) => boolean> = {
   [RUN_FILTER_ALL]: () => true,
   [RUN_FILTER_ATTENTION]: (run) => ATTENTION_RUN_STATUSES.has(run.status),
   [RUN_FILTER_ACTIVE]: (run) => ACTIVE_RUN_STATUSES.has(run.status),
-  [RUN_FILTER_SUCCEEDED]: (run) => run.status === RUN_STATUS_SUCCEEDED
+  [RUN_FILTER_SUCCEEDED]: (run) => run.status === HOST_RUN_STATUS.SUCCEEDED
 };
 
 export function matchesRunFilter(run: HostRun, filter: RunFilter, query: string): boolean {
@@ -252,44 +343,6 @@ export function formatElapsedDuration(
   const hours = Math.floor(totalMinutes / MINUTES_PER_HOUR);
   const minutes = totalMinutes % MINUTES_PER_HOUR;
   return minutes > EMPTY_COUNT ? `${hours}h ${minutes}m` : `${hours}h`;
-}
-
-export interface LifecycleStep {
-  key: string;
-  label: string;
-  tone: string;
-}
-
-const RUN_LIFECYCLE_STEPS: Record<HostRunStatus, readonly LifecycleStep[]> = {
-  [RUN_STATUS_PENDING]: [
-    { key: "dispatch", label: "Queued", tone: "step-warning" },
-    { key: "verify", label: "Verify", tone: "" },
-    { key: "outcome", label: "Complete", tone: "" }
-  ],
-  [RUN_STATUS_RUNNING]: [
-    { key: "dispatch", label: "Dispatched", tone: "step-info" },
-    { key: "verify", label: "Verifying", tone: "step-info" },
-    { key: "outcome", label: "Complete", tone: "" }
-  ],
-  [RUN_STATUS_SUCCEEDED]: [
-    { key: "dispatch", label: "Dispatched", tone: "step-success" },
-    { key: "verify", label: "Verified", tone: "step-success" },
-    { key: "outcome", label: "Succeeded", tone: "step-success" }
-  ],
-  [RUN_STATUS_FAILED]: [
-    { key: "dispatch", label: "Dispatched", tone: "step-error" },
-    { key: "verify", label: "Checked", tone: "step-error" },
-    { key: "outcome", label: "Failed", tone: "step-error" }
-  ],
-  [RUN_STATUS_TIMED_OUT]: [
-    { key: "dispatch", label: "Dispatched", tone: "step-error" },
-    { key: "verify", label: "Expired", tone: "step-error" },
-    { key: "outcome", label: "Timed out", tone: "step-error" }
-  ]
-};
-
-export function lifecycleStepsForRun(status: HostRunStatus): readonly LifecycleStep[] {
-  return RUN_LIFECYCLE_STEPS[status];
 }
 
 const LOG_ERROR_LINE_PATTERN = /\b(error|failed|fatal|exception|traceback|exited with)\b/i;
