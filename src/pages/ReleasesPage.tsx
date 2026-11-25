@@ -75,7 +75,7 @@ function WorkbenchToolbar({
     <div className="flex flex-col gap-3 border-b border-base-300 bg-base-200/30 px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
       <div
         aria-label="Filter host runs by status"
-        className="grid grid-cols-2 gap-1 rounded-field border border-base-300 bg-base-200/60 p-1 sm:flex sm:items-center"
+        className="grid grid-cols-2 gap-1 sm:flex sm:items-center"
         role="group"
       >
         {FILTER_OPTIONS.map((option) => {
@@ -85,10 +85,10 @@ function WorkbenchToolbar({
             <button
               aria-pressed={active}
               className={cx(
-                "inline-flex items-center justify-center gap-1.5 rounded-field border px-2.5 py-1 text-xs font-bold transition-colors",
+                "inline-flex items-center justify-center gap-1.5 rounded-field px-2.5 py-1.5 text-xs font-bold transition-colors",
                 active
-                  ? "border-base-content/20 bg-base-100 text-base-content shadow-2xs"
-                  : "border-transparent text-muted hover:bg-base-content/6 hover:text-base-content"
+                  ? "bg-base-content/10 text-base-content"
+                  : "text-muted hover:bg-base-content/6 hover:text-base-content"
               )}
               key={option.key}
               onClick={() => onFilterChange(option.key)}
