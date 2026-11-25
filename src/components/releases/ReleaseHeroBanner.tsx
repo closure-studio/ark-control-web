@@ -118,8 +118,8 @@ export function ReleaseHeroBanner({
 
   return (
     <Panel aria-labelledby="release-runs-title">
-      <div className="grid gap-3 p-5 sm:p-6 xl:grid-cols-12 xl:grid-rows-2">
-        <div className="flex min-w-0 flex-col gap-4 rounded-box border border-base-300 p-4 sm:flex-row sm:items-start sm:p-5 xl:col-span-7 xl:row-span-2">
+      <div className="grid divide-y divide-base-300 xl:grid-cols-12 xl:divide-x xl:divide-y-0">
+        <div className="flex min-w-0 flex-col gap-4 p-5 sm:flex-row sm:items-start sm:p-6 xl:col-span-7">
           <div
             {...radialSemantics}
             className={cx(
@@ -196,17 +196,17 @@ export function ReleaseHeroBanner({
           </div>
         </div>
 
-        <div className="grid min-w-0 gap-3 xl:col-span-5 xl:row-span-2 xl:grid-cols-2 xl:grid-rows-subgrid">
+        <div className="grid min-w-0 grid-cols-2 gap-px bg-base-300 xl:col-span-5">
           {kpiCards.map((item) => {
             const active = activeFilter === item.filter;
             return (
               <button
                 aria-pressed={active}
                 className={cx(
-                  "flex min-w-0 flex-col gap-1.5 rounded-box border p-3.5 text-left transition-colors",
+                  "flex min-w-0 flex-col justify-center gap-1.5 p-4 text-left transition-colors focus-visible:-outline-offset-2 sm:p-5",
                   active
-                    ? "border-primary bg-base-200"
-                    : "border-base-300 bg-base-100 hover:border-base-content/30 hover:bg-base-200"
+                    ? "bg-primary/8 shadow-[inset_0_-2px_0_0_var(--color-primary)]"
+                    : "bg-base-100 hover:bg-base-200/60"
                 )}
                 key={item.filter}
                 onClick={() => onSelectFilter(item.filter)}
